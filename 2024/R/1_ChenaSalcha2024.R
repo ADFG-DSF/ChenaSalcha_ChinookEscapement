@@ -21,6 +21,11 @@
 
 library(tidyverse)
 
+save_output <- TRUE
+# save_output <- FALSE  # whether to save output to external files
+                      # these files live in /2024/Rdata as .Rdata files
+
+
 # reading data, incorporating some fixes to ensure that the standardize_ functions won't break
 
 Salcha_South_raw <- read.csv("2024/flat_data/Salcha Gravel 2024.csv", stringsAsFactors=F)
@@ -224,11 +229,12 @@ dim(all_fish)
 
 
 
-# ## saving the sonar data!
-# 
-# save(all_sonar, all_fish, file="sonardata2019.Rdata")
-# # load(file="sonardata2019.Rdata")
-# --> I think the above can just be source()'d
+## saving the sonar data!
+
+if(save_output) {
+  save(all_sonar, all_fish, file="2024/Rdata/sonardata2024.Rdata")
+}
+# load(file="2024/Rdata/sonardata2024.Rdata")
 
 
 
@@ -329,8 +335,9 @@ catmean[1:Ncat] <- mu[1:Ncat,Nyear]
 }', file=length_jags)
 
 
-niter <- 2*1000 #50000   
-# 2k takes 1.3 minutes, 50k takes 35 minutes
+niter <- 10*1000 #50000   
+# 2k takes 1.3 minutes, 10k takes 5 min
+# 50k took 35 minutes previously
 
 {
 tstart <- Sys.time()
@@ -507,8 +514,8 @@ CS_data <- list(Stot=Salcha_sub$chinook+Salcha_sub$chum,Schin=Salcha_sub$chin,Sd
                 nyear=length(unique(Salcha_sub$year)),Sn=nrow(Salcha_sub),Cn=nrow(Chena_sub))
 
 
-niter <- 50*1000 #500000   
-# 10k in 30 sec, 50k in 2.5 min
+niter <- 100*1000 #500000   
+# 10k in 30 sec, 50k in 2.5 min, 100k in 5 min
 
 ncores <- 6
 
@@ -765,5 +772,9 @@ legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=
 # sapply(length.jags.out$n.eff, function(x) which(x<500))
 
 
-save(a0,a1,a0_alt,a1_alt,prior_mn,prior_sd_mn,prior_sd_sd,prior_se, file="CSpriors2019.Rdata")
-# save(all_fish, file="sonardata2018.Rdata")
+if(save_output) {
+  save(a0, a1, a0_alt, a1_alt,
+       prior_mn, prior_sd_mn, prior_sd_sd, prior_se, 
+       file="2024/Rdata/CSpriors2024.Rdata")
+}
+  # save(all_fish, file="sonardata2018.Rdata")
