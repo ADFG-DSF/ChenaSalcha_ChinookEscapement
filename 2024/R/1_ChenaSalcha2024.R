@@ -619,7 +619,7 @@ for(i in length(yearsboth)) {
   curve(expit(b0[1]+b1[1]*x),add=T,lty=3,col=2)
 }
 # plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
-legend("bottomleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
 
 for(i in length(yearsboth)) {
   asdf <- subset(Salcha_sub, year==yearsboth[i])
@@ -631,7 +631,7 @@ for(i in length(yearsboth)) {
   curve(expit(b0[2]+b1[2]*x),add=T,lty=3,col=2)
 }
 # plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
-legend("bottomleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
 
 
 plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Chena")
@@ -656,14 +656,18 @@ a0p <- CS_jags_out$sims.list$a0[,length(yearsboth),]
 a1p <- CS_jags_out$sims.list$a1[,length(yearsboth),]
 
 predp <- expit(a0p[,1] + outer(a1p[,1], xx))
-envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Chena")
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Chena", ylim=0:1)
 asdf <- subset(Chena_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
+     labels=(asdf$chinook+asdf$chum), pos=4)
 
 predp <- expit(a0p[,2] + outer(a1p[,2], xx))
-envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha")
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha", ylim=0:1)
 asdf <- subset(Salcha_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
+     labels=(asdf$chinook+asdf$chum), pos=4)
 
 
 
@@ -709,7 +713,7 @@ for(i in length(yearsboth)) {
   curve(expit(b0_alt[1]+b1_alt[1]*x),add=T,lty=3,col=2)
 }
 # plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
-legend("bottomleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
 
 for(i in length(yearsboth)) {
   asdf <- subset(Salcha_sub, year==yearsboth[i])
@@ -721,7 +725,7 @@ for(i in length(yearsboth)) {
   curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=3,col=2)
 }
 # plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
-legend("bottomleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
 
 
 plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Chena")
@@ -746,14 +750,18 @@ a0p <- CS_jags_out_alt$sims.list$a0[,length(yearsboth),]
 a1p <- CS_jags_out_alt$sims.list$a1[,length(yearsboth),]
 
 predp <- expit(a0p[,1] + outer(a1p[,1], xx))
-envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Chena")
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Chena", ylim=0:1)
 asdf <- subset(Chena_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
+     labels=(asdf$chinook+asdf$chum), pos=4)
 
 predp <- expit(a0p[,2] + outer(a1p[,2], xx))
-envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha")
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha", ylim=0:1)
 asdf <- subset(Salcha_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
+     labels=(asdf$chinook+asdf$chum), pos=4)
 
 # 
 # 

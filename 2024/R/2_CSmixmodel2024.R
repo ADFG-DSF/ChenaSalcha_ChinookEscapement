@@ -267,7 +267,7 @@ CSmix_data_alt$prec.b1 <- a1_prec_alt[nrow(a1_alt),]
 
 ## actually running the thing!!
 
-niter <- 50*1000  ##500000  
+niter <- 20*1000  ##500000  
 # 50k now takes 7 min
 
 
@@ -290,7 +290,7 @@ niter <- 50*1000  ##500000
 }
 
 par(mfrow=c(1,1))
-nbyname(CSmix_jags_out)
+# nbyname(CSmix_jags_out)
 plotRhats(CSmix_jags_out)
 traceworstRhat(CSmix_jags_out, parmfrow = c(3,3))
 qq_postpred(CSmix_jags_out, p="ypp", y=CSmix_data$L.mm.D)
@@ -352,12 +352,12 @@ all_fish$modspec_alt <- CSmix_jags_out_alt$mean$species
 ggplot(all_fish,
        aes(x=date, y=length, colour=modspec)) +
   geom_point() +
-  scale_colour_gradient(low="goldenrod", high="cornflowerblue")
+  scale_colour_gradient(low="red", high="green")
 
 ggplot(all_fish,
        aes(x=date, y=length, colour=modspec_alt)) +
   geom_point()+
-  scale_colour_gradient(low="goldenrod", high="cornflowerblue")
+  scale_colour_gradient(low="red", high="green")
 
 
 
