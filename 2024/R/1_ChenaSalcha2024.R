@@ -312,13 +312,14 @@ for(riv in c("Chena","Salcha")) {
 
 library(jagsUI)
 library(jagshelper)
-ncores <- 6  # number of cores for parallel chains.  I use 6 on the big desktop, 3 for laptop
+ncores <- 10#6  # number of cores for parallel chains.  I use 10 on the big desktop, 6 for laptop
 
 # specify model, which is written to a temporary file
 length_jags <- tempfile()
 cat('model {
   for (i in 1:N) {
     y[i] ~ dnorm(mu[cat[i],year[i]], tau[cat[i]])
+    # ypp[i] ~ dnorm(mu[cat[i],year[i]], tau[cat[i]])
   }
   for(j in 1:Ncat) {
     for(k in 1:Nyear) {
@@ -336,7 +337,7 @@ catmean[1:Ncat] <- mu[1:Ncat,Nyear]
 
 
 niter <- 10*1000 #50000   
-# 2k takes 1.3 minutes, 10k takes 5 min
+# 2k takes 1.3 minutes, 10k takes 5 min (12min with ypp)
 # 50k took 35 minutes previously
 
 {
@@ -345,7 +346,7 @@ print(tstart)
 length_data_jags <- list(y=lengthdata$Length, year=lengthdata$yearfac, cat=lengthdata$cat,
                     N=nrow(lengthdata), Ncat=max(lengthdata$cat), Nyear= max(lengthdata$yearfac))
 length_jags_out <- jagsUI::jags(model.file=length_jags, data=length_data_jags,
-                                parameters.to.save=c("mu","mumu","sigmu","sigma","catmean"), 
+                                parameters.to.save=c("mu","mumu","sigmu","sigma","catmean","ypp"), 
                                 n.chains=ncores, parallel=T, n.iter=niter, n.burnin=niter/2, n.thin=niter/2000)
 Sys.time()-tstart
 }
@@ -353,13 +354,12 @@ nbyname(length_jags_out)
 plotRhats(length_jags_out)
 traceworstRhat(length_jags_out, parmfrow = c(3, 3))
 
+# par(mfcol = c(3,3))
+# plot_postpred(length_jags_out, y=lengthdata$Length, p="ypp")
+# par(mfrow=c(1,1))
+# qq_postpred(length_jags_out, y=lengthdata$Length, p="ypp")
 
-# # jags.names(length_jags_out,425)
-# # 
-# # par(mfrow=c(5,5))
-# # # jags.trace(length_jags_out)
-# # jags.trace(length_jags_out,which.param = 1:8)
-# # jags.trace(length_jags_out,which.param = 18:25)
+
 # 
 prior_mn <- length_jags_out$mean$catmean
 prior_se <- length_jags_out$sd$catmean
@@ -377,7 +377,7 @@ mu_sd <- length_jags_out$sd$mu
 ##  - light blue bars: +/- SD for observations
 
 cat <- 0
-par(mfrow=c(2,1))
+par(mfrow=c(2,2))
 for(riv in c("Chena","Salcha")) {
   for(spec in c("Chinook","Chum")) {
     for(sexx in c("male","female")) {
@@ -517,7 +517,7 @@ CS_data <- list(Stot=Salcha_sub$chinook+Salcha_sub$chum,Schin=Salcha_sub$chin,Sd
 niter <- 100*1000 #500000   
 # 10k in 30 sec, 50k in 2.5 min, 100k in 5 min
 
-ncores <- 6
+ncores <- 10#6
 
 
 {
@@ -556,11 +556,19 @@ a0 <- CS_jags_out$mean$a0
 a1 <- CS_jags_out$mean$a1
 b0 <- CS_jags_out$mean$b0
 b1 <- CS_jags_out$mean$b1
+a0_prec <- CS_jags_out$sd$a0^(-2)
+a1_prec <- CS_jags_out$sd$a1^(-2)
+b0_prec <- CS_jags_out$sd$b0^(-2)
+b1_prec <- CS_jags_out$sd$b1^(-2)
 
 a0_alt <- CS_jags_out_alt$mean$a0
 a1_alt <- CS_jags_out_alt$mean$a1
 b0_alt <- CS_jags_out_alt$mean$b0
 b1_alt <- CS_jags_out_alt$mean$b1
+a0_prec_alt <- CS_jags_out_alt$sd$a0^(-2)
+a1_prec_alt <- CS_jags_out_alt$sd$a1^(-2)
+b0_prec_alt <- CS_jags_out_alt$sd$b0^(-2)
+b1_prec_alt <- CS_jags_out_alt$sd$b1^(-2)
 
 # save(CS_jags_out, length.jags.out, lengthdata, file="priorouts.Rdata")
 
@@ -599,7 +607,7 @@ plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
 legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
 
 
-par(mfrow=c(2,2))
+par(mfrow=c(3,2))
 
 for(i in length(yearsboth)) {
   asdf <- subset(Chena_sub, year==yearsboth[i])
@@ -643,6 +651,22 @@ curve(expit(a0[length(yearsboth),2]+a1[length(yearsboth),2]*x),add=T,lwd=3)
 legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=c(1,3,3),lty=c(1,2,1))
 
 
+xx <- min(Chena_sub$date205, na.rm=TRUE):max(Chena_sub$date205, na.rm=TRUE)
+a0p <- CS_jags_out$sims.list$a0[,length(yearsboth),]
+a1p <- CS_jags_out$sims.list$a1[,length(yearsboth),]
+
+predp <- expit(a0p[,1] + outer(a1p[,1], xx))
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Chena")
+asdf <- subset(Chena_sub, year==yearsboth[length(yearsboth)])
+points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+
+predp <- expit(a0p[,2] + outer(a1p[,2], xx))
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha")
+asdf <- subset(Salcha_sub, year==yearsboth[length(yearsboth)])
+points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+
+
+
 
 
 par(mfrow=c(3,4))
@@ -673,7 +697,7 @@ legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),
 
 
 
-par(mfrow=c(2,2))
+par(mfrow=c(3,2))
 
 for(i in length(yearsboth)) {
   asdf <- subset(Chena_sub, year==yearsboth[i])
@@ -716,6 +740,20 @@ curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=2,lwd=3)
 curve(expit(a0_alt[length(yearsboth),2]+a1_alt[length(yearsboth),2]*x),add=T,lwd=3)
 legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=c(1,3,3),lty=c(1,2,1))
 
+
+xx <- min(Chena_sub$date205, na.rm=TRUE):max(Chena_sub$date205, na.rm=TRUE)
+a0p <- CS_jags_out_alt$sims.list$a0[,length(yearsboth),]
+a1p <- CS_jags_out_alt$sims.list$a1[,length(yearsboth),]
+
+predp <- expit(a0p[,1] + outer(a1p[,1], xx))
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Chena")
+asdf <- subset(Chena_sub, year==yearsboth[length(yearsboth)])
+points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+
+predp <- expit(a0p[,2] + outer(a1p[,2], xx))
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha")
+asdf <- subset(Salcha_sub, year==yearsboth[length(yearsboth)])
+points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
 
 # 
 # 
@@ -774,6 +812,7 @@ legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=
 
 if(save_output) {
   save(a0, a1, a0_alt, a1_alt,
+       a0_prec, a1_prec, a0_prec_alt, a1_prec_alt,
        prior_mn, prior_sd_mn, prior_sd_sd, prior_se, 
        file="2024/Rdata/CSpriors2024.Rdata")
 }
