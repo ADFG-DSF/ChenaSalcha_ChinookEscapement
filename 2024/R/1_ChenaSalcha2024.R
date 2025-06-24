@@ -336,8 +336,8 @@ catmean[1:Ncat] <- mu[1:Ncat,Nyear]
 }', file=length_jags)
 
 
-niter <- 10*1000 #50000   
-# 2k takes 1.3 minutes, 10k takes 5 min (12min with ypp)
+niter <- 50*1000 #50000   
+# 2k takes 1.3 minutes, 10k takes 5 min (12min with ypp)   - 10k is probably enough
 # 50k took 35 minutes previously
 
 {
@@ -514,8 +514,8 @@ CS_data <- list(Stot=Salcha_sub$chinook+Salcha_sub$chum,Schin=Salcha_sub$chin,Sd
                 nyear=length(unique(Salcha_sub$year)),Sn=nrow(Salcha_sub),Cn=nrow(Chena_sub))
 
 
-niter <- 100*1000 #500000   
-# 10k in 30 sec, 50k in 2.5 min, 100k in 5 min
+niter <- 500*1000 #500000   
+# 10k in 30 sec, 50k in 2.5 min, 100k in 5 min   - 100k was sufficient
 
 ncores <- 10#6
 

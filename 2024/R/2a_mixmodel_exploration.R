@@ -372,9 +372,9 @@ cat('model {
 
 ## actually running the thing!!
 
-niter <- 20*1000  ##500000 
+niter <- 500*1000  ##500000 
 ncores <- 10 
-# 50k now takes 7 min
+# 50k now takes 7 min, 100k takes 14 (2 hrs for all models) - run 500k overnight
 
 allouts <- list()
 params <- c("lambda","L.mm.act","betaD0","betaD1", "sig.star", "species","sex",
@@ -393,9 +393,13 @@ params <- c("lambda","L.mm.act","betaD0","betaD1", "sig.star", "species","sex",
   
   time <- Sys.time()-t.start
   print(time)
-}
-
-{
+# }
+# 
+# par(mfrow=c(1,1))
+# plotRhats(allouts[[1]])
+# traceworstRhat(allouts[[1]], parmfrow=c(3,3))
+# 
+# {
 # base data
 # precfac=1
 # regression inside model (reg)
@@ -460,6 +464,11 @@ allouts[[8]] <- jagsUI::jags(model.file=CSmix_reg,data=CSmix_data_alt,
 
 par(mfrow=c(3,3))
 for(i in 1:length(allouts)) plotRhats(allouts[[i]])
+
+for(i in 1:length(allouts)) {
+  par(mfrow=c(3,3))
+  traceworstRhat(allouts[[i]])
+}
 
 par(mfrow=c(3,3))
 for(i in 1:length(allouts)) qq_postpred(allouts[[i]], p="ypp", y=CSmix_data$L.mm.D)
