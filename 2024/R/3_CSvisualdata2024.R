@@ -71,20 +71,39 @@ table(as.matrix(is.na(Salcha_2024_Chin_vis[,3:10])),
 table(as.matrix(is.na(Salcha_2024_Chum_vis[,3:10])),
       as.matrix(Salcha_2024_Clarity_vis[,3:10]))
 
-table(as.matrix(Chena_2024_Chin_vis[,3:10])[as.matrix(Chena_2024_Clarity_vis[,3:10]) %in% c(-1,5)], useNA = "ifany")
-table(as.matrix(Chena_2024_Chum_vis[,3:10])[as.matrix(Chena_2024_Clarity_vis[,3:10]) %in% c(-1,5)], useNA = "ifany")
-table(as.matrix(Salcha_2024_Chin_vis[,3:10])[as.matrix(Salcha_2024_Clarity_vis[,3:10]) %in% c(-1,5)], useNA = "ifany")
-table(as.matrix(Salcha_2024_Chum_vis[,3:10])[as.matrix(Salcha_2024_Clarity_vis[,3:10]) %in% c(-1,5)], useNA = "ifany")
+table(as.matrix(Chena_2024_Chin_vis[,3:10])[as.matrix(Chena_2024_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
+table(as.matrix(Chena_2024_Chum_vis[,3:10])[as.matrix(Chena_2024_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
+table(as.matrix(Salcha_2024_Chin_vis[,3:10])[as.matrix(Salcha_2024_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
+table(as.matrix(Salcha_2024_Chum_vis[,3:10])[as.matrix(Salcha_2024_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
 
-## data fix: counts when clarity is 5 or -1 should be NA
+
 for(j in 3:10) {
-  Chena_2024_Chin_vis[,j][Chena_2024_Clarity_vis[,j] %in% c(-1,5)] <- NA
-  Chena_2024_Chum_vis[,j][Chena_2024_Clarity_vis[,j] %in% c(-1,5)] <- NA
-  Salcha_2024_Chin_vis[,j][Salcha_2024_Clarity_vis[,j] %in% c(-1,5)] <- NA
-  Salcha_2024_Chum_vis[,j][Salcha_2024_Clarity_vis[,j] %in% c(-1,5)] <- NA
+  ## data fix: counts when clarity is 4, 5 or -1 should be NA
+  Chena_2024_Chin_vis[,j][Chena_2024_Clarity_vis[,j] %in% c(-1,4,5)] <- NA
+  Chena_2024_Chum_vis[,j][Chena_2024_Clarity_vis[,j] %in% c(-1,4,5)] <- NA
+  Salcha_2024_Chin_vis[,j][Salcha_2024_Clarity_vis[,j] %in% c(-1,4,5)] <- NA
+  Salcha_2024_Chum_vis[,j][Salcha_2024_Clarity_vis[,j] %in% c(-1,4,5)] <- NA
+  
+  ## data fix: counts when clarity is 1-3 should be zero, not NA
+  #### maybe safer to impute from other species??
+  Chena_2024_Chin_vis[,j][Chena_2024_Clarity_vis[,j] %in% 1:3 &
+                            is.na(Chena_2024_Chin_vis[,j])] <- 0
+  Chena_2024_Chum_vis[,j][Chena_2024_Clarity_vis[,j] %in% 1:3 &
+                            is.na(Chena_2024_Chum_vis[,j])] <- 0
+  Salcha_2024_Chin_vis[,j][Salcha_2024_Clarity_vis[,j] %in% 1:3 &
+                             is.na(Salcha_2024_Chin_vis[,j])] <- 0
+  Salcha_2024_Chum_vis[,j][Salcha_2024_Clarity_vis[,j] %in% 1:3 &
+                             is.na(Salcha_2024_Chum_vis[,j])] <- 0
 }
 
-
+table(as.matrix(is.na(Chena_2024_Chin_vis[,3:10])),
+      as.matrix(Chena_2024_Clarity_vis[,3:10]))
+table(as.matrix(is.na(Chena_2024_Chum_vis[,3:10])),
+      as.matrix(Chena_2024_Clarity_vis[,3:10]))
+table(as.matrix(is.na(Salcha_2024_Chin_vis[,3:10])),
+      as.matrix(Salcha_2024_Clarity_vis[,3:10]))
+table(as.matrix(is.na(Salcha_2024_Chum_vis[,3:10])),
+      as.matrix(Salcha_2024_Clarity_vis[,3:10]))
 
 
 ## The main functionality of the following was to compare the visual count data to the sonar.
@@ -122,6 +141,8 @@ Chena_2024_Chin_vis_long <- reshapelong(x=Chena_2024_Chin_vis)
 Chena_2024_Chum_vis_long <- reshapelong(x=Chena_2024_Chum_vis)
 Salcha_2024_Chin_vis_long <- reshapelong(x=Salcha_2024_Chin_vis)
 Salcha_2024_Chum_vis_long <- reshapelong(x=Salcha_2024_Chum_vis)
+Chena_2024_Clarity_vis_long <- reshapelong(x=Chena_2024_Clarity_vis)
+Salcha_2024_Clarity_vis_long <- reshapelong(x=Salcha_2024_Clarity_vis)
 
 # makeNA0 <- function(x) ifelse(is.na(x), 0, x)
 C_all_vis_long <- Chena_2024_Chin_vis_long
@@ -129,6 +150,22 @@ C_all_vis_long$count <- Chena_2024_Chin_vis_long$count + Chena_2024_Chum_vis_lon
 S_all_vis_long <- Salcha_2024_Chin_vis_long
 S_all_vis_long$count <- Salcha_2024_Chin_vis_long$count + Salcha_2024_Chum_vis_long$count
 
+C_all_vis_long$clarity <- Chena_2024_Clarity_vis_long$count
+S_all_vis_long$clarity <- Salcha_2024_Clarity_vis_long$count
+
+
+tech24 <- read.csv("2024/addl_data/tech24.csv") %>%
+  mutate(date=datesmasher(Date)) %>%
+  select(-Date) %>%
+  pivot_longer(c("X1","X2","X3"), names_to="shift", values_to = "tech") %>% 
+  mutate(shift = as.numeric(substr(shift, 2, 2)))
+head(tech24, 30)
+
+S_all_vis_long$tech <- NA
+for(i in 1:nrow(tech24)) {
+  S_all_vis_long$tech[S_all_vis_long$date == tech24$date[i] & 
+                        S_all_vis_long$shift == tech24$shift[i]] <- tech24$tech[i]
+}
 
 # ## needed a name, and it works kind of like tapply with a sum
 # tsum <- function(mat,index) {
@@ -224,10 +261,132 @@ legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
 
 
 
-sum(C_all_sonar_a2a$length >= 400, na.rm=T)
-sum(C_all_vis_long_a2a$count)
+# sum(C_all_sonar_a2a$length >= 400, na.rm=T)
+# sum(C_all_vis_long_a2a$count)
 sum(S_all_sonar_a2a$length >= 400, na.rm=T)
 sum(S_all_vis_long_a2a$count)
+
+
+all(names(S_sonar_byblock_a2a) == S_all_vis_long_a2a$block)
+S_all_vis_long_a2a$sonarcount <- S_sonar_byblock_a2a
+S_all_vis_long_a2a$time <- (S_all_vis_long_a2a$shift-1)*8 + (S_all_vis_long_a2a$hour-1)
+
+S_all_vis_long_a2a$dscore1 <- log((S_all_vis_long_a2a$count + 1) / 
+                              (S_all_vis_long_a2a$sonarcount + 1))
+
+a2a <- S_all_vis_long_a2a
+
+boxplot(a2a$dscore1 ~ a2a$tech)
+abline(h=0:1, lty=3)
+
+boxplot(a2a$dscore1 ~ a2a$shift)
+abline(h=0:1, lty=3)
+
+boxplot(a2a$dscore1 ~ a2a$clarity)
+abline(h=0:1, lty=3)
+
+boxplot(a2a$dscore1 ~ a2a$time)
+abline(h=0:1, lty=3)
+
+boxplot(a2a$dscore1 ~ paste(a2a$tech,a2a$clarity), las=2, xlab="")
+abline(h=0:1, lty=3)
+
+lm(a2a$dscore1 ~ a2a$tech + factor(a2a$time)) %>% summary
+
+
+yglm <- cbind(as.numeric(a2a$count),
+              ifelse(as.numeric(a2a$count)>as.numeric(a2a$sonarcount),
+                     as.numeric(a2a$count), as.numeric(a2a$sonarcount)))
+
+glm(yglm ~ a2a$tech, family="binomial") %>% AIC
+glm(yglm ~ a2a$shift, family="binomial") %>% AIC
+glm(yglm ~ a2a$clarity, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity), family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$time), family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity) + a2a$tech, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity) * a2a$tech, family="binomial") %>% AIC
+
+
+
+
+
+
+S_all_vis_long_a2a %>%
+  ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
+  ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(tech))) +
+  facet_wrap(~factor(clarity)) +
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
+  ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
+  facet_wrap(~factor(tech)) +
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
+  ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
+  facet_wrap(~factor(time)) +
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
+  group_by(tech) %>%
+  summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
+  ggplot(aes(x=sonarsum, y=visualsum, colour=tech)) + 
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
+  group_by(clarity) %>%
+  summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
+  ggplot(aes(x=sonarsum, y=visualsum, colour=factor(clarity))) + 
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
+  group_by(tech, clarity) %>%
+  summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
+  ggplot(aes(x=sonarsum, y=visualsum, colour=factor(clarity))) + 
+  facet_wrap(~tech) +
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
+  group_by(time) %>%
+  summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
+  ggplot(aes(x=sonarsum, y=visualsum, colour=factor(time))) + 
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
+  group_by(date, clarity) %>%
+  summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) -> aa #%>%
+  # pivot_longer(cols=c("sonarsum","visualsum"), names_to="type") %>%
+  # ggplot(aes(x=date, y=value, colour=type)) + 
+  # facet_wrap(~clarity)+
+  # geom_line() 
+
+par(mfrow=c(3,1))
+for(i in 1:3) {
+  plot(sonarsum ~ as.Date(date), data=subset(aa, clarity==i), type="l",
+       main=i, lwd=2, col=2, ylim=c(0, max(aa$sonarsum)))
+  points(sonarsum ~ as.Date(date), data=subset(aa, clarity==i), 
+         col=2)
+  lines(visualsum ~ as.Date(date), data=subset(aa, clarity==i), 
+       lwd=2, col=4)
+  points(visualsum ~ as.Date(date), data=subset(aa, clarity==i), 
+         col=4)
+}
+
+
+
+
+
 
 
 
