@@ -16,7 +16,7 @@
 
 library(tidyverse)
 
-datesmasher <- function(x, year=2024) { # horrible kludge that turns 1-Jul into 07-01
+datesmasher <- function(x, year=2024) { # horrible kludge that turns 1-Jul into 2024-07-01
   x1 <- x
   x1[nchar(x1) < 6] <- paste0(0, x1[nchar(x1) < 6])
   dd <- substr(x1, 1, 2)
@@ -45,6 +45,7 @@ Chena_2024_Clarity_vis <- read.csv("2024/flat_data/ChenaClarity_vis20min.csv") %
 Salcha_2024_Clarity_vis <- read.csv("2024/flat_data/SalchaClarity_vis20min.csv") %>%
   mutate(Day=datesmasher(Day))
 
+# looking at the raw data files
 summary(Chena_2024_Chin_vis)
 summary(Chena_2024_Chum_vis)
 summary(Chena_2024_Clarity_vis)
@@ -53,6 +54,7 @@ summary(Salcha_2024_Chum_vis)
 summary(Salcha_2024_Clarity_vis)
 
 # this was only needed once, but easy enough to fix for everyone
+# - one of the count columns was formatted as character
 for(j in 3:10) {
   Chena_2024_Chin_vis[,j] <- as.numeric(Chena_2024_Chin_vis[,j])
   Chena_2024_Chum_vis[,j] <- as.numeric(Chena_2024_Chum_vis[,j])
@@ -62,6 +64,8 @@ for(j in 3:10) {
   Salcha_2024_Clarity_vis[,j] <- as.numeric(Salcha_2024_Clarity_vis[,j])
 }
 
+# checking to see if counts are present where the shouldn't be
+# - bad visibility or recorded no-count (clarity of -1, 4, or 5)
 table(as.matrix(is.na(Chena_2024_Chin_vis[,3:10])),
       as.matrix(Chena_2024_Clarity_vis[,3:10]))
 table(as.matrix(is.na(Chena_2024_Chum_vis[,3:10])),
@@ -71,12 +75,13 @@ table(as.matrix(is.na(Salcha_2024_Chin_vis[,3:10])),
 table(as.matrix(is.na(Salcha_2024_Chum_vis[,3:10])),
       as.matrix(Salcha_2024_Clarity_vis[,3:10]))
 
+# what ARE the counts we would be missing if we turn these into NA
 table(as.matrix(Chena_2024_Chin_vis[,3:10])[as.matrix(Chena_2024_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
 table(as.matrix(Chena_2024_Chum_vis[,3:10])[as.matrix(Chena_2024_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
 table(as.matrix(Salcha_2024_Chin_vis[,3:10])[as.matrix(Salcha_2024_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
 table(as.matrix(Salcha_2024_Chum_vis[,3:10])[as.matrix(Salcha_2024_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
 
-
+# fixing
 for(j in 3:10) {
   ## data fix: counts when clarity is 4, 5 or -1 should be NA
   Chena_2024_Chin_vis[,j][Chena_2024_Clarity_vis[,j] %in% c(-1,4,5)] <- NA
@@ -96,6 +101,7 @@ for(j in 3:10) {
                              is.na(Salcha_2024_Chum_vis[,j])] <- 0
 }
 
+# checking to make sure fixes worked
 table(as.matrix(is.na(Chena_2024_Chin_vis[,3:10])),
       as.matrix(Chena_2024_Clarity_vis[,3:10]))
 table(as.matrix(is.na(Chena_2024_Chum_vis[,3:10])),
@@ -144,7 +150,9 @@ Salcha_2024_Chum_vis_long <- reshapelong(x=Salcha_2024_Chum_vis)
 Chena_2024_Clarity_vis_long <- reshapelong(x=Chena_2024_Clarity_vis)
 Salcha_2024_Clarity_vis_long <- reshapelong(x=Salcha_2024_Clarity_vis)
 
-# makeNA0 <- function(x) ifelse(is.na(x), 0, x)
+# making datasets with ALL fish for checking
+# - the idea being sonar totals should approximately match visual totals
+#   before species apportionment
 C_all_vis_long <- Chena_2024_Chin_vis_long
 C_all_vis_long$count <- Chena_2024_Chin_vis_long$count + Chena_2024_Chum_vis_long$count
 S_all_vis_long <- Salcha_2024_Chin_vis_long
@@ -154,6 +162,10 @@ C_all_vis_long$clarity <- Chena_2024_Clarity_vis_long$count
 S_all_vis_long$clarity <- Salcha_2024_Clarity_vis_long$count
 
 
+
+
+# investigating a possible tech effect for visual quality
+# - note: this dataset is not publicly available
 tech24 <- read.csv("2024/addl_data/tech24.csv") %>%
   mutate(date=datesmasher(Date)) %>%
   select(-Date) %>%
@@ -167,30 +179,24 @@ for(i in 1:nrow(tech24)) {
                         S_all_vis_long$shift == tech24$shift[i]] <- tech24$tech[i]
 }
 
-# ## needed a name, and it works kind of like tapply with a sum
-# tsum <- function(mat,index) {
-#   uindex <- sort(unique(index))
-#   outmat <- matrix(nrow=nrow(mat), ncol=length(uindex))
-#   for(j in 1:length(uindex)) {
-#     outmat[,j] <- rowSums(as.matrix(mat[,index==uindex[j]]), na.rm=T)
-#   }
-#   colnames(outmat) <- as.character(uindex)
-#   return(outmat)
-# }
-# 
-# 
-# # tsum_long <- function(mat,index) {
-# #   uindex <- sort(unique(index))
-# #   outmat <- matrix(nrow=length(uindex), ncol=ncol(mat))
-# #   for(j in 1:length(uindex)) {
-# #     outmat[j,] <- colSums(as.matrix(mat[,index==uindex[j]]), na.rm=T)
-# #   }
-# #   colnames(outmat) <- as.character(uindex)
-# #   return(outmat)
-# # }
 
+
+
+## loading sonar data and tabulating totals where there are blocks of time
+## with sonar AND visual (apples:apples)
 
 load(file="2024/Rdata/sonardata2024.Rdata")
+
+
+# COMMENT OUT WHEN THIS IS NOT USED
+# if mixture model has been run, this will load the median species apportionment
+# for each fish
+
+# # specmed <- CSmix_jags_out$q50$species
+# specmed <- CSmix_jags_out_alt$q50$species
+# all_sonar$spec <- NA
+# all_sonar$spec[!is.na(all_sonar$length) & all_sonar$length>=400] <- specmed
+
 
 # CSouth_all_sonar <- subset(all_sonar, station=="Chena South")
 # CNorth_all_sonar <- subset(all_sonar, station=="Chena North")
@@ -202,6 +208,9 @@ S_all_sonar <- subset(all_sonar, river=="Salcha")
 #                            intersect(CSouth_all_sonar$block, CNorth_all_sonar$block))
 S_blocks_both <- intersect(S_all_vis_long$block[!is.na(S_all_vis_long$count)],
                            intersect(SSouth_all_sonar$block, SNorth_all_sonar$block))
+
+# S_blocks_both1 <- sort(unique(subset(S_all_vis_long, block %in% S_blocks_both & clarity %in% 1:2)$block))
+# S_blocks_both <- S_blocks_both1
 
 # C_all_sonar_a2a <- subset(C_all_sonar, block %in% C_blocks_both)
 S_all_sonar_a2a <- subset(S_all_sonar, block %in% S_blocks_both)
@@ -215,6 +224,17 @@ S_sonar_bydate_a2a <- table(S_all_sonar_a2a$date[S_all_sonar_a2a$length >= 400])
 S_sonar_byblock_a2a <- table(as.factor(S_all_sonar_a2a$block)[S_all_sonar_a2a$length >= 400])
 # C_vis_bydate_a2a <- with(C_all_vis_long_a2a, tapply(count, as.character(date), sum))
 S_vis_bydate_a2a <- with(S_all_vis_long_a2a, tapply(count, as.character(date), sum))
+
+
+# # if species was saved from the mixture model (lines uncommented previously)
+# # this will subset to JUST kings.  Comment out when not used.
+# 
+# # C_sonar_bydate_a2a <- table(C_all_sonar_a2a$date[C_all_sonar_a2a$length >= 400])
+# S_sonar_bydate_a2a <- table(S_all_sonar_a2a$date[S_all_sonar_a2a$length >= 400 & S_all_sonar_a2a$spec==1])
+# # C_sonar_byblock_a2a <- table(as.factor(C_all_sonar_a2a$block)[C_all_sonar_a2a$length >= 400])
+# S_sonar_byblock_a2a <- table(as.factor(S_all_sonar_a2a$block)[S_all_sonar_a2a$length >= 400 & S_all_sonar_a2a$spec==1])
+# # C_vis_bydate_a2a <- with(C_all_vis_long_a2a, tapply(count, as.character(date), sum))
+# S_vis_bydate_a2a <- with(S_all_vis_long_a2a, tapply(count, as.character(date), sum))
 
 
 
@@ -260,21 +280,26 @@ lines(S_all_vis_long_a2a$count, col=4,lwd=2)
 legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
 
 
+# checking overall totals
 
 # sum(C_all_sonar_a2a$length >= 400, na.rm=T)
 # sum(C_all_vis_long_a2a$count)
 sum(S_all_sonar_a2a$length >= 400, na.rm=T)
 sum(S_all_vis_long_a2a$count)
+sum(S_sonar_byblock_a2a)
 
+
+# adding sonar counts to the visual dataframe (long) for easier comparison
 
 all(names(S_sonar_byblock_a2a) == S_all_vis_long_a2a$block)
 S_all_vis_long_a2a$sonarcount <- S_sonar_byblock_a2a
 S_all_vis_long_a2a$time <- (S_all_vis_long_a2a$shift-1)*8 + (S_all_vis_long_a2a$hour-1)
 
-S_all_vis_long_a2a$dscore1 <- log((S_all_vis_long_a2a$count + 1) / 
+# trying a discrepancy score, kinda works
+S_all_vis_long_a2a$dscore1 <- ((S_all_vis_long_a2a$count + 1) / 
                               (S_all_vis_long_a2a$sonarcount + 1))
 
-a2a <- S_all_vis_long_a2a
+a2a <- S_all_vis_long_a2a # making the name shorter for less typing
 
 boxplot(a2a$dscore1 ~ a2a$tech)
 abline(h=0:1, lty=3)
@@ -291,25 +316,50 @@ abline(h=0:1, lty=3)
 boxplot(a2a$dscore1 ~ paste(a2a$tech,a2a$clarity), las=2, xlab="")
 abline(h=0:1, lty=3)
 
-lm(a2a$dscore1 ~ a2a$tech + factor(a2a$time)) %>% summary
+# lm(a2a$dscore1 ~ a2a$tech + factor(a2a$time)) %>% summary
 
+
+
+# trying a binomial logistic regression, under the assumption that sonar detects
+# all fish, and some proportion are detected visually (shaky, i know)
 
 yglm <- cbind(as.numeric(a2a$count),
               ifelse(as.numeric(a2a$count)>as.numeric(a2a$sonarcount),
                      as.numeric(a2a$count), as.numeric(a2a$sonarcount)))
 
+a2a$tech2 <- ifelse(a2a$tech=="Matt", "Matt", "NotMatt")
+a2a$tech3 <- ifelse(a2a$tech=="Matt", "a", 
+                    ifelse(a2a$tech %in% c("Francine", "Mike"), "b", "c"))
+a2a$clarity2 <- ifelse(a2a$clarity == 3, 3, "1-2")
 glm(yglm ~ a2a$tech, family="binomial") %>% AIC
+glm(yglm ~ a2a$tech2, family="binomial") %>% AIC
+glm(yglm ~ a2a$tech3, family="binomial") %>% AIC
 glm(yglm ~ a2a$shift, family="binomial") %>% AIC
 glm(yglm ~ a2a$clarity, family="binomial") %>% AIC
+glm(yglm ~ a2a$clarity2, family="binomial") %>% AIC
 glm(yglm ~ factor(a2a$clarity), family="binomial") %>% AIC
 glm(yglm ~ factor(a2a$time), family="binomial") %>% AIC
 glm(yglm ~ factor(a2a$clarity) + a2a$tech, family="binomial") %>% AIC
 glm(yglm ~ factor(a2a$clarity) * a2a$tech, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity2) + a2a$tech, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity2) * a2a$tech, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity) + a2a$tech2, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity) * a2a$tech2, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity2) + a2a$tech2, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity2) * a2a$tech2, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity) + a2a$tech3, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity) * a2a$tech3, family="binomial") %>% AIC
+glm(yglm ~ factor(a2a$clarity2) + a2a$tech3, family="binomial") %>% summary
+glm(yglm ~ factor(a2a$clarity2) * a2a$tech3, family="binomial") %>% AIC
+
+boxplot(a2a$dscore1 ~ a2a$tech3)
+boxplot(a2a$dscore1 ~ a2a$clarity2)
+boxplot(a2a$dscore1 ~ paste(a2a$tech3,a2a$clarity2), las=2, xlab="")
+with(subset(a2a, !is.na(clarity2)), boxplot(dscore1 ~ paste(tech3, clarity2), col=c(2,3,3,4,4)))
 
 
 
-
-
+# a whooooooooole bunch of visualizations!
 
 S_all_vis_long_a2a %>%
   ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
@@ -335,10 +385,24 @@ S_all_vis_long_a2a %>%
   geom_abline(slope=1, intercept=0, lty=3)
 
 S_all_vis_long_a2a %>%
+  ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
+  facet_wrap(~factor(date)) +
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
+  ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity), pch=tech)) +
+  facet_wrap(~factor(date)) +
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
   group_by(tech) %>%
   summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
   ggplot(aes(x=sonarsum, y=visualsum, colour=tech)) + 
   geom_point() +
+  scale_x_continuous(limits=c(0,220)) +
+  scale_y_continuous(limits=c(0,220)) +
   geom_abline(slope=1, intercept=0, lty=3)
 
 S_all_vis_long_a2a %>%
@@ -346,6 +410,8 @@ S_all_vis_long_a2a %>%
   summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
   ggplot(aes(x=sonarsum, y=visualsum, colour=factor(clarity))) + 
   geom_point() +
+  scale_x_continuous(limits=c(0,260)) +
+  scale_y_continuous(limits=c(0,260)) +
   geom_abline(slope=1, intercept=0, lty=3)
 
 S_all_vis_long_a2a %>%
@@ -354,6 +420,8 @@ S_all_vis_long_a2a %>%
   ggplot(aes(x=sonarsum, y=visualsum, colour=factor(clarity))) + 
   facet_wrap(~tech) +
   geom_point() +
+  scale_x_continuous(limits=c(0,80)) +
+  scale_y_continuous(limits=c(0,80)) +
   geom_abline(slope=1, intercept=0, lty=3)
 
 S_all_vis_long_a2a %>%
@@ -361,7 +429,22 @@ S_all_vis_long_a2a %>%
   summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
   ggplot(aes(x=sonarsum, y=visualsum, colour=factor(time))) + 
   geom_point() +
+  scale_x_continuous(limits=c(0,45)) +
+  scale_y_continuous(limits=c(0,45)) +
   geom_abline(slope=1, intercept=0, lty=3)
+
+S_all_vis_long_a2a %>%
+  group_by(date, shift) %>%
+  summarise(sonarsum=sum(sonarcount), visualsum=sum(count), tech=tech[1], clarity=round(median(clarity))) %>%
+  mutate(dscore1=(visualsum+10)/(sonarsum+10)) %>%
+  mutate(shiftshift=as.Date(date)+shift/3) %>%
+  ggplot(aes(x=shiftshift, y=dscore1, pch=tech, col=factor(clarity))) + 
+  geom_point() #+
+  # scale_x_continuous(limits=c(0,45)) +
+  # scale_y_continuous(limits=c(0,45)) +
+  # geom_abline(slope=1, intercept=0, lty=3)
+
+
 
 S_all_vis_long_a2a %>%
   group_by(date, clarity) %>%
@@ -405,6 +488,9 @@ for(i in 1:length(truncs)) {
   #                            intersect(CSouth_all_sonar$block, CNorth_all_sonar$block))
   S_blocks_both <- intersect(S_all_vis_long$block[!is.na(S_all_vis_long$count)],
                              intersect(SSouth_all_sonar$block, SNorth_all_sonar$block))
+  
+  # S_blocks_both1 <- sort(unique(subset(S_all_vis_long, block %in% S_blocks_both & clarity %in% 1:2)$block))
+  # S_blocks_both <- S_blocks_both1
   
   # C_all_sonar_a2a <- subset(C_all_sonar, block %in% C_blocks_both)
   S_all_sonar_a2a <- subset(S_all_sonar, block %in% S_blocks_both)
