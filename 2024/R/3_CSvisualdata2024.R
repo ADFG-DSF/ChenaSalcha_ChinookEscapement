@@ -5,6 +5,9 @@
 #################################
 
 
+save_output <- FALSE   ## whether to write output to an external file
+
+
 
 
 # library(readxl)
@@ -110,6 +113,15 @@ table(as.matrix(is.na(Salcha_2024_Chin_vis[,3:10])),
       as.matrix(Salcha_2024_Clarity_vis[,3:10]))
 table(as.matrix(is.na(Salcha_2024_Chum_vis[,3:10])),
       as.matrix(Salcha_2024_Clarity_vis[,3:10]))
+
+
+#### saving output
+if(save_output) {
+  save(Chena_2024_Chin_vis, Chena_2024_Chum_vis, 
+       Salcha_2024_Chin_vis, Salcha_2024_Chum_vis,
+       file="2024/Rdata/vis_2024.Rdata")
+}
+
 
 
 ## The main functionality of the following was to compare the visual count data to the sonar.
@@ -354,7 +366,6 @@ glm(yglm ~ factor(a2a$clarity2) * a2a$tech3, family="binomial") %>% AIC
 
 boxplot(a2a$dscore1 ~ a2a$tech3)
 boxplot(a2a$dscore1 ~ a2a$clarity2)
-boxplot(a2a$dscore1 ~ paste(a2a$tech3,a2a$clarity2), las=2, xlab="")
 with(subset(a2a, !is.na(clarity2)), boxplot(dscore1 ~ paste(tech3, clarity2), col=c(2,3,3,4,4)))
 
 

@@ -10,6 +10,11 @@ library(jagshelper)
 load(file="2024/Rdata/CSpriors2024.Rdata")
 load(file="2024/Rdata/sonardata2024.Rdata")
 
+save_output <- FALSE  # whether to write output to an external file
+
+
+
+
 # all_fish <- subset(all_sonar, length>=400)
 
 
@@ -267,7 +272,7 @@ CSmix_data_alt$prec.b1 <- a1_prec_alt[nrow(a1_alt),]
 
 ## actually running the thing!!
 
-niter <- 20*1000  ##500000  
+niter <- 100*1000  ##500000  
 # 50k now takes 7 min
 
 
@@ -331,6 +336,18 @@ par(mfrow=c(1,1))
 
 # df_2019_alt <- as.data.frame(as.matrix(CSmix_jags_out_alt$samples))
 # save(df_2019, df_2019_alt, file="df_2019.Rdata")
+
+
+##### saving output
+if(save_output) {
+  # specmat <- CSmix_jags_out$sims.list$species
+  # modlength <- apply(CSmix_jags_out$sims.list$L.mm.act, 2, median) + mn_length
+  modlength <- apply(CSmix_jags_out_alt$sims.list$L.mm.act, 2, median) + mn_length
+  specmat <- CSmix_jags_out_alt$sims.list$species
+  save(specmat, modlength, file="2024/Rdata/mixmodel2024.Rdata")
+}
+# modlength <- apply(pull_post(df_2019, "L.mm"), 2, median) + mean(all_fish$length)
+
 
 CSmix_jags_out$DIC      
 CSmix_jags_out_alt$DIC  
