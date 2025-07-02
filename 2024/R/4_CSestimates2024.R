@@ -1,7 +1,13 @@
+library(tidyverse)
+library(jagsUI)
+library(jagshelper)
+
 load(file="2024/Rdata/CSpriors2024.Rdata")
 load(file="2024/Rdata/sonardata2024.Rdata")
 load(file="2024/Rdata/vis_2024.Rdata")
 load(file="2024/Rdata/mixmodel2024.Rdata")
+
+save_output <- FALSE  # whether to write output to external files
 
 
 # slightly kludgy thing for post-truncation based on input length...
@@ -244,7 +250,9 @@ expansion_sheet <- function(x, vx=NULL, worstcase=T) {
   f1d <- hd/Hd
   f2di <- mdi/Mdi
   V1 <- (1-f1d)*(Hd^2)*s21d/hd
-  V2 <- (1/f1d)*rowSums((1-f2di)*(Mdi^2)*s22di/mdi, na.rm=T)
+  infcheck <- (1-f2di)*(Mdi^2)*s22di/mdi  # expansion sheet removes vals where mdi==0 in sum
+  infcheck[is.infinite(infcheck)] <- NA
+  V2 <- (1/f1d)*rowSums(infcheck, na.rm=T)
   VNd <- V1+V2
   
   ## -- this section was for applying the interpolation (with variance).
@@ -312,9 +320,9 @@ for(i in 1:3) {
 
 ## expandorizing
 Cchin_vis_expanded <- expansion_sheet(x=Cchin_vis)
-Cchum_vis_expanded <- expansion_sheet(Cchum_vis)
-Schin_vis_expanded <- expansion_sheet(Schin_vis)
-Schum_vis_expanded <- expansion_sheet(Schum_vis)
+Cchum_vis_expanded <- expansion_sheet(x=Cchum_vis)
+Schin_vis_expanded <- expansion_sheet(x=Schin_vis)
+Schum_vis_expanded <- expansion_sheet(x=Schum_vis)
 
 ## compiling all sources of estimates into one data.frame for each species/river
 Cchin_ests <- cbind(Cchin_vis_expanded, Cchin_expanded, C650up_expanded[,1:3])
@@ -400,9 +408,30 @@ checkthem <- function(ests, sheet) {
   x[logi,]
 }
 checkthem(ests=Cchin_ests, sheet=Cchin_sheet)
+#          date n_ests n_sheet v_ests v_sheet
+# 13 2024-07-05      0       0      0      NA   - divide by zero because hd==1 (but zero count)
+# 30 2024-07-22     NA      63    NaN      NA   - hd==1, count removed
+# 34 2024-07-26     18      18     63      NA   - char (.) in raw data
+
 checkthem(ests=Cchum_ests, sheet=Cchum_sheet)
+#          date n_ests n_sheet v_ests v_sheet
+# 12 2024-07-04     NA      12    NaN      NA   - hd==1, count removed
+# 13 2024-07-05      0       0      0      NA   - mdi==1, sheet formula falls apart (but zero count)
+# 30 2024-07-22     NA      18    NaN      NA   - hd==1, count removed
+
 checkthem(ests=Schin_ests, sheet=Schin_sheet)
+#          date   n_ests n_sheet    v_ests    v_sheet
+# 18 2024-07-10       NA      14       NaN         NA   - hd==1, count removed
+# 24 2024-07-16       NA      45       NaN         NA   - hd==1, count removed
+# 27 2024-07-19   9.0000      21  47.57143  158.57143   - first shift taken out (3 hours) - also found & fixed a bug in func
+# 30 2024-07-22 108.8571     106  189.5429  207.71429   - 2 hours taken out for water clarity
+# 35 2024-07-27  36.0000      38  106.2857   32.28571   - bug in expansion sheet xlsx!!  RDS columns for this region of dates
+
 checkthem(ests=Schum_ests, sheet=Schum_sheet)
+#          date n_ests n_sheet v_ests v_sheet
+# 18 2024-07-10     NA      14    NaN      NA   - hd==1, count removed
+# 24 2024-07-16     NA      90    NaN    2808   - counts & clarity values are identical - I think counts might not be real???
+
 
 
 ## kludgy function for plotting all 3 sources of estimates (visual, sonar, 650mm threshold)
@@ -487,3 +516,709 @@ Schum_ests1 <- runningavg_interp(x=Schum_ests)
 
 
 # Hamachan all the things!!
+
+
+## These datasets get updated every year
+
+## IMPORTANT: all these counts start June 23
+Cchin_histo <- read.csv("2024/flat_data/ChenaKing_historic_runtiming.csv", skip=4, nrows=54)
+Cchum_histo <- read.csv("2024/flat_data/ChenaChum_historic_runtiming.csv", skip=3, nrows=54)
+Schin_histo <- read.csv("2024/flat_data/SalchaKing_historic_runtiming.csv", skip=4, nrows=84)
+Schum_histo <- read.csv("2024/flat_data/SalchaChum_historic_runtiming.csv", skip=4, nrows=84)
+
+
+# ## fixorizing inputs
+# Schin_histo <- Schin_histo[,colSums(!is.na(Schin_histo))>0]  # removing empty columns
+# Schum_histo <- Schum_histo[,colSums(!is.na(Schum_histo))>0]
+# Cchin_histo <- Cchin_histo[,colSums(!is.na(Cchin_histo))>0]  # removing empty columns
+# Cchum_histo <- Cchum_histo[,colSums(!is.na(Cchum_histo))>0]
+
+Cchin_histo_counts <- Cchin_histo[,seq(2,ncol(Cchin_histo),by=2)]
+Cchum_histo_counts <- Cchum_histo[,seq(2,ncol(Cchum_histo),by=2)]
+Schin_histo_counts <- Schin_histo[,seq(2,ncol(Schin_histo),by=2)]
+Schum_histo_counts <- Schum_histo[,seq(2,ncol(Schum_histo),by=2)]
+Cchin_histo_counttype <- Cchin_histo[,seq(3,ncol(Cchin_histo),by=2)]
+Cchum_histo_counttype <- Cchum_histo[,seq(3,ncol(Cchum_histo),by=2)]
+Schin_histo_counttype <- Schin_histo[,seq(3,ncol(Schin_histo),by=2)]
+Schum_histo_counttype <- Schum_histo[,seq(3,ncol(Schum_histo),by=2)]
+
+## censoring data types "not allowed".  Haven't really messed with this much.
+## v=visual, s=sonar, 0=interpolated somehow
+notallowed <- c(0)
+for(i in 1:length(notallowed)) {  # still works, but would have been more efficient with %in%
+  Cchin_histo_counts[Cchin_histo_counttype == notallowed[i]] <- NA
+  Cchum_histo_counts[Cchum_histo_counttype == notallowed[i]] <- NA
+  Schin_histo_counts[Schin_histo_counttype == notallowed[i]] <- NA
+  Schum_histo_counts[Schum_histo_counttype == notallowed[i]] <- NA
+}
+
+colnames(Cchin_histo_counts) <- paste0("count",1993:2023)
+colnames(Cchum_histo_counts) <- paste0("count",1993:2023)
+colnames(Schin_histo_counts) <- paste0("count",1993:2023)
+colnames(Schum_histo_counts) <- paste0("count",1993:2023)
+# colnames(Schin_histo_counts) <- paste0("count",(1993:2023)[!(1993:2023 %in% c(2018, 2020))])
+# colnames(Schum_histo_counts) <- paste0("count",(1993:2023)[!(1993:2023 %in% c(2018, 2020))])
+
+
+
+
+## setting up to use current year's available daily estimates in the Hamachan model
+
+getests <- function(x) ifelse(!is.na(x$vis_count_expanded), x$vis_count_expanded, x$sonar_count_expanded)
+
+# match these with dates
+Cchin_histo_counts$count2024 <- NA
+Cchum_histo_counts$count2024 <- NA
+Schin_histo_counts$count2024 <- NA
+Schum_histo_counts$count2024 <- NA
+
+# IMPORTANT: the 1:nrow() bit relies on _ests1 and _histo_counts starting on Jun 23
+Cchin_histo_counts$count2024 <- getests(Cchin_ests1[1:nrow(Cchin_histo_counts),])
+Cchum_histo_counts$count2024 <- getests(Cchum_ests1[1:nrow(Cchum_histo_counts),])
+Schin_histo_counts$count2024[1:nrow(Schin_ests1)] <- getests(Schin_ests1)
+Schum_histo_counts$count2024[1:nrow(Schin_ests1)] <- getests(Schum_ests1)
+
+
+hiermod1_jags <- tempfile()
+cat('model {
+    
+  for(j in 1:nyrs) {
+    for(i in 1:ndays){
+    y1[i,j] ~ dnorm(theta1[i,j], tausq1[j])
+      #    y1[i,j] ~ dpois(theta1[i,j])    
+      # Assume that run timing distribution takes log normal distribution 
+      theta1[i,j] <- a1[j]*exp(-0.5*pow(log(x[i]/mu1[j])/b1[j],2))
+      # Assume that run timing distribution takes Extreme value distribution 
+        # theta1[i,j] <- a1[j]*exp(-exp(-(x[i]-mu1[j])/b1[j])-(x[i]-mu1[j])/b1[j]+1)
+      # Assume that run timing distribution takes log-logistic distribution 
+        # theta1[i,j] <- (a1[j]*(b1[j]/mu1[j])*pow((x[i]/mu1[j]),b1[j]-1))/pow(1+pow((x[i]/mu1[j]),b1[j]),2)
+      
+      y2[i,j] ~ dnorm(theta2[i,j], tausq2[j])
+      #    y2[i,j] ~ dpois(theta2[i,j])    
+      # Assume that run timing distribution takes log normal distribution 
+      theta2[i,j] <- a2[j]*exp(-0.5*pow(log(x[i]/mu2[j])/b2[j],2))
+      # Assume that run timing distribution takes Extreme value distribution 
+      #   theta2[i,j] <- a2[j]*exp(-exp(-(x[i]-mu2[j])/b2[j])-(x[i]-mu2[j])/b2[j]+1)
+      # Assume that run timing distribution takes log-logistic distribution 
+      #   theta2[i,j] <- (a2[j]*(b2[j]/mu2[j])*pow((x[i]/mu2[j]),b2[j]-1))/pow(1+pow((x[i]/mu2[j]),b2[j]),2)   
+    }
+  }
+    # a[] indicates the maximum height (amplitude) of the function a>0
+    # mu[] indicates the function peaks when x = mu mu>0 : Peak timing
+    # b[] indicates peak width of the function b>0 standard deviation
+    
+    # Priors
+  for(i in 1:nyrs) {
+    # Normal distribution Positive only 
+    #  a: is independent not hierarchical 
+    a1[i] ~ dnorm(0,0.00001)T(0,)
+    b1[i] ~ dnorm(b01,b01.prec)T(0.16,)
+    # b1[i] <- b2[i]
+    # mu1[i] ~ dnorm(mu01,mu01.prec)T(0,)
+    # mu1[i] ~ dnorm(mu2[i],prec.mu)
+    mu1[i] <- mu2[i] + eps[i]
+    eps[i] ~ dnorm(mueps,preceps)T(-mu2[i],)
+    
+    a2[i] ~ dnorm(0,0.00001)T(0,)
+    b2[i] ~ dnorm(b02,b02.prec)T(0.16,)
+    mu2[i] ~ dnorm(mu02,mu02.prec)T(0,)   
+  }  
+  mueps ~ dnorm(0,0.01)
+  preceps <- pow(sigeps,-2)
+  sigeps ~ dunif(0,4)
+  prec.mu <- pow(sig.mu,-2)
+  sig.mu ~ dunif(0,2)
+    
+  b01 ~ dnorm(0.5,0.001)T(0.16,)
+  mu01 ~ dnorm(25,0.001)T(0,)
+  b01.prec <-1/b01.ssq 
+  b01.ssq <- b01.sigma*b01.sigma
+  b01.sigma ~ dunif(0,100)  
+  mu01.prec <-1/mu01.ssq 
+  mu01.ssq <- mu01.sigma*mu01.sigma
+  mu01.sigma ~ dunif(0,100) 
+    
+  b02 ~ dnorm(0.5,0.001)T(0.16,)
+  mu02 ~ dnorm(25,0.001)T(0,)
+  b02.prec <-1/b02.ssq 
+  b02.ssq <- b02.sigma*b02.sigma
+  b02.sigma ~ dunif(0,100)  
+  mu02.prec <-1/mu02.ssq 
+  mu02.ssq <- mu02.sigma*mu02.sigma
+  mu02.sigma ~ dunif(0,100)  
+    
+    ## This assumes that variance of each year is independent.     
+  for(i in 1:nyrs) {    
+    tausq1[i] <- pow(sigma1[i],-2)
+    sigma1[i] ~ dunif(0,100) 
+    
+    tausq2[i] <- pow(sigma2[i],-2)
+    sigma2[i] ~ dunif(0,100) 
+  }
+    
+    # Backestimate escapement 
+  for(j in 1:nyrs){
+    for(i in 1:ndays){ 
+      y1est[i,j] <- y1[i,j]
+      y2est[i,j] <- y2[i,j]
+    }
+  }
+    # missing <- sum(y1est[1:20,12])
+    
+}', file=hiermod1_jags)
+
+
+hiermod2_jags <- tempfile()
+cat('model {
+    
+  for(j in 1:nyrs) {
+    for(i in 1:ndays){
+    y1[i,j] ~ dnorm(theta1[i,j], tausq1[j])
+    y1pp[i,j] ~ dnorm(theta1[i,j], tausq1[j])
+      #    y1[i,j] ~ dpois(theta1[i,j])    
+      # Assume that run timing distribution takes log normal distribution 
+      theta1[i,j] <- a1[j]*exp(-0.5*pow(log(x[i]/mu1[j])/b1[j],2))
+      # Assume that run timing distribution takes Extreme value distribution 
+        # theta1[i,j] <- a1[j]*exp(-exp(-(x[i]-mu1[j])/b1[j])-(x[i]-mu1[j])/b1[j]+1)
+      # Assume that run timing distribution takes log-logistic distribution 
+        # theta1[i,j] <- (a1[j]*(b1[j]/mu1[j])*pow((x[i]/mu1[j]),b1[j]-1))/pow(1+pow((x[i]/mu1[j]),b1[j]),2)
+    }
+  }
+    # a[] indicates the maximum height (amplitude) of the function a>0
+    # mu[] indicates the function peaks when x = mu mu>0 : Peak timing
+    # b[] indicates peak width of the function b>0 standard deviation
+    
+    # Priors
+  for(i in 1:nyrs) {
+    # Normal distribution Positive only 
+    #  a: is independent not hierarchical 
+    a1[i] ~ dnorm(0,0.00001)T(0,)
+    b1[i] ~ dnorm(b01,b01.prec)T(0.16,)
+    # b1[i] <- b2[i]
+    # mu1[i] ~ dnorm(mu01,mu01.prec)T(0,)
+    # mu1[i] ~ dnorm(mu2[i],prec.mu)
+    mu1[i]  ~ dnorm(mu01,mu01.prec)T(0,)   
+  }  
+  
+  prec.mu <- pow(sig.mu,-2)
+  sig.mu ~ dunif(0,2)
+    
+  b01 ~ dnorm(0.5,0.001)T(0.16,)
+  mu01 ~ dnorm(25,0.001)T(0,)
+  b01.prec <-1/b01.ssq 
+  b01.ssq <- b01.sigma*b01.sigma
+  b01.sigma ~ dunif(0,100)  
+  mu01.prec <-1/mu01.ssq 
+  mu01.ssq <- mu01.sigma*mu01.sigma
+  mu01.sigma ~ dunif(0,100) 
+    
+    ## This assumes that variance of each year is independent.     
+  for(i in 1:nyrs) {    
+    tausq1[i] <- pow(sigma1[i],-2)
+    sigma1[i] ~ dunif(0,100) 
+  }
+    
+    # Backestimate escapement 
+  for(j in 1:nyrs){
+    for(i in 1:ndays){ 
+      y1est[i,j] <- y1[i,j]
+    }
+  }
+    # missing <- sum(y1est[1:20,12])
+    
+}', file=hiermod2_jags)
+
+# runHamachan <- function(y1,y2,n.iter=5000,msg="",tryitonce=F,...) {
+#   y1[y1<0]<-0
+#   y2[y2<0]<-0
+#   hiermod1_jags_data <- list(y1=log(y1+1),
+#                              y2=log(y2+1),
+#                              nyrs=dim(y1)[2],
+#                              ndays=dim(y1)[1],
+#                              x=1:nrow(y1))
+#   # n.iter <- 5000   # 5000 took 1.4 min in parallel
+#   didit <- F
+#   tries <- 1
+#   while(!didit) {
+#     t.start <- Sys.time()
+#     print(paste(msg,"try",tries))
+#     print(t.start)
+#     if(tryitonce) {
+#       hiermod1_jags_out <- jagsUI::jags(model.file=hiermod1_jags,
+#                                         data=hiermod1_jags_data, 
+#                                         parameters.to.save=c("y1est","y2est","eps","b1","b2","mu1","mu2","sigma1","sigma2","a1","a2"), 
+#                                         n.chains=ncores, parallel=T, n.iter=n.iter, n.burnin=n.iter/2, n.adapt=n.iter/10, n.thin=n.iter/1000,
+#                                         ...=...)
+#       didit <- T
+#     }
+#     else hiermod1_jags_out <- tryCatch(jagsUI::jags(model.file=hiermod1_jags,
+#                                                     data=hiermod1_jags_data, 
+#                                                     parameters.to.save=c("y1est","y2est","eps","b1","b2","mu1","mu2","sigma1","sigma2","a1","a2"), 
+#                                                     n.chains=ncores, parallel=T, n.iter=n.iter, n.burnin=n.iter/2, n.adapt=n.iter/10, n.thin=n.iter/1000,
+#                                                     ...=...),
+#                                        error=function(x) NA)
+#     if(length(hiermod1_jags_out)>1) didit<-T
+#     tries <- tries+1
+#     time <- Sys.time()-t.start
+#     print(time)
+#   }
+#   return(hiermod1_jags_out)
+# }
+
+
+# an alternate version that runs one river/species combo at a time (more stable)
+runHamachan <- function(y1,n.iter=5000,msg="",tryitonce=F,...) {
+  y1[y1<0]<-0
+  hiermod2_jags_data <- list(y1=log(y1+1),
+                             nyrs=dim(y1)[2],
+                             ndays=dim(y1)[1],
+                             x=1:nrow(y1))
+  # n.iter <- 5000   # 5000 took 1.4 min in parallel
+  didit <- F
+  tries <- 1
+  while(!didit) {
+    t.start <- Sys.time()
+    print(paste(msg,"try",tries))
+    print(t.start)
+    if(tryitonce) {
+      hiermod2_jags_out <- jagsUI::jags(model.file=hiermod2_jags,
+                                        data=hiermod2_jags_data, 
+                                        parameters.to.save=c("y1est","b1","mu1","sigma1","a1",
+                                                             "y1pp",
+                                                             "b01", "b01.sigma", "mu01", "mu01.sigma"), 
+                                        n.chains=ncores, parallel=T, n.iter=n.iter, n.burnin=n.iter/2, n.adapt=n.iter/10, n.thin=n.iter/1000,
+                                        ...=...)
+      didit <- T
+    }
+    else hiermod2_jags_out <- tryCatch(jagsUI::jags(model.file=hiermod2_jags,
+                                                    data=hiermod2_jags_data, 
+                                                    parameters.to.save=c("y1est","b1","mu1","sigma1","a1",
+                                                                         "y1pp",
+                                                                         "b01", "b01.sigma", "mu01", "mu01.sigma"), 
+                                                    n.chains=ncores, parallel=T, n.iter=n.iter, n.burnin=n.iter/2, n.adapt=n.iter/10, n.thin=n.iter/1000,
+                                                    ...=...),
+                                       error=function(x) NA)
+    if(length(hiermod2_jags_out)>1) didit<-T
+    tries <- tries+1
+    time <- Sys.time()-t.start
+    print(time)
+  }
+  return(hiermod2_jags_out)
+}
+
+
+
+## The Hamachan model can be temperemental.  It very often errors out with
+## "invalid parent values" in mid run.  The runHamachan function above provides
+## a wrapper for running the thing, and keeps trying until it succeeds.
+
+
+
+# ## This is kludgy.  In 2018 it took forever to get the model to run without erroring, so
+# ## when it finally did, I harvested some of the posterior values to use as inits in case
+# ## I had to run it again.  I saved them to an Rdata file, but here they are as hard-coded.
+# ## Note that there are 26 values associated with each parameter, and 27 are needed - this
+# ## will need to be updated in future years if this is done again.
+# 
+# # load(file="2018 materials/forinits.Rdata")
+# mns <- list(#eps=-3.07521,
+#             b1=c(0.4993585,0.4874376,0.7624875,0.9734876,0.458732,0.5421083,0.3211041,0.3740339,0.1929754,0.3908579,0.4122211,0.6864661,0.3759515,0.4443365,0.6278043,0.6584322,0.4933222,0.3012637,0.4994659,0.4840655,0.3097202,0.3172026,0.544756,0.479573,0.809854,0.3268056),
+#             b2=c(0.5594515,0.4664597,0.6634599,1.082397,0.5895152,0.5607642,0.3615209,0.358652,0.2936067,0.4280528,0.335822,0.5988643,0.4539034,0.3820309,0.3282549,0.446211,0.4376694,0.3169996,0.4750557,0.546952,0.3782434,0.488768,0.5489337,0.4331722,0.5893685,0.4820904),
+#             mu2=c(35.56875,37.19195,41.08907,27.05414,39.08196,43.53637,46.77643,41.9007,35.49535,41.63567,32.75191,41.18205,44.93722,39.49298,43.7797,48.54853,41.94573,42.10001,44.21258,47.85188,40.09372,38.20914,39.13038,29.63719,39.12832,45.70052),
+#             sigma1=c(0.8410581,1.264184,0.7762708,0.835336,0.9054144,1.357112,0.7919183,0.5859112,0.6912784,0.2445944,0.8591711,0.7059833,1.340392,0.4699086,1.00802,1.290016,0.8248737,0.6178315,50.92243,0.7304966,1.097464,0.7134912,1.225191,0.4489991,1.13808,0.5346976),
+#             sigma2=c(0.888907,0.842229,0.6036151,0.3796727,0.9886522,0.6087939,1.781811,0.6405888,1.012119,0.7453564,0.5691745,0.7107642,0.7832727,0.6425774,0.7383351,0.8215943,1.199256,0.7138716,0.2709813,0.4223435,0.9294938,50.15124,0.7383826,1.037929,0.9035162,0.6739997),
+#             a1=c(5.678893,6.044671,5.454089,6.6836,6.516682,5.65599,6.91382,5.254823,6.601376,6.042483,4.67915,6.95134,7.479791,7.83172,5.62572,4.954238,6.795865,6.500094,251.0988,6.714561,7.791792,7.194905,6.140953,6.247392,6.94229,6.948424),
+#             a2=c(5.601007,7.825206,7.197368,8.656482,7.682589,6.999347,6.786969,7.355442,7.302795,7.20858,11.44176,7.645368,9.355948,9.153506,7.464748,7.274597,7.793973,7.524785,8.475906,7.653075,8.592395,252.2626,6.458762,5.435573,7.444079,8.06277))
+# sds <- list(#eps=0.6064488,
+#             b1=c(0.03866983,0.05414206,0.1101233,0.2230508,0.04498995,0.08051076,0.02874224,0.02671431,0.01669528,0.08299616,0.1113003,0.03757654,0.07164957,0.02906789,0.06328428,0.09191997,0.04247819,0.01936726,0.2175975,0.02859066,0.02608488,0.02872582,0.06360887,0.09261977,0.1054313,0.02396206),
+#             b2=c(0.04406355,0.02940756,0.04173194,0.2389003,0.04811137,0.03958778,0.03664379,0.02415809,0.02918349,0.07694738,0.0413929,0.01919289,0.01752968,0.01351291,0.03374409,0.03677125,0.03907535,0.01450575,0.03457909,0.0331126,0.02070704,0.1902916,0.07356101,0.07883926,0.07228649,0.02609204),
+#             mu2=c(1.23545,0.9162987,1.62253,2.214778,1.830528,2.145404,1.478285,0.796168,0.8225886,4.291614,4.227743,0.5955652,0.692352,0.4171637,2.279478,1.397698,1.591942,0.5588188,1.132288,1.067957,0.7360707,1.227842,1.973257,4.206209,3.072517,1.576285),
+#             sigma1=c(0.1074857,0.1677873,0.1550886,0.1841203,0.1130642,0.1972234,0.1077742,0.07409995,0.1081477,0.0722943,0.1455415,0.09164432,0.2895339,0.07996181,0.1318207,0.197919,0.1073783,0.08084683,28.96905,0.111376,0.1724392,0.1212499,0.1515441,0.09321352,0.1888806,0.07542445),
+#             sigma2=c(0.1147809,0.1076489,0.07199613,0.1104888,0.118231,0.07495933,0.2034865,0.08360964,0.1903357,0.172397,0.09825959,0.06060466,0.07586093,0.08290737,0.1009956,0.1252546,0.1560355,0.08326016,0.06001122,0.05435268,0.1184784,28.97692,0.1264625,0.1770651,0.1179773,0.0822787),
+#             a1=c(0.2125329,0.3143807,0.2596297,0.2396886,0.2503697,0.3794018,0.2603522,0.1553136,0.2669334,0.565404,0.4807141,0.1953144,0.5105327,0.1313666,0.3082988,0.6275289,0.2175612,0.1813053,194.9607,0.2629037,0.3407902,0.2268901,0.2987485,0.5399707,0.3201379,0.2338063),
+#             a2=c(0.2086162,0.2075684,0.1281544,0.1332426,0.2559887,0.1800073,0.4950331,0.171989,0.7686177,0.7071601,4.143269,0.1584075,0.1747124,0.1650843,0.3554756,0.7650475,0.2988157,0.1939959,0.08604632,0.09677732,0.2370959,188.1118,0.222736,1.311115,0.2914468,0.277075))
+# 
+# nr <- ncol(Cchin_histo_counts)  # this used to be the 27
+# haminits1 <- function() list(#eps=rnorm(1,mns$eps,sds$eps),
+#                              b1=rnorm(nr,c(mns$b1,median(mns$b1)),c(sds$b1,median(sds$b1))),
+#                              b2=rnorm(nr,c(mns$b2,median(mns$b2)),c(sds$b2,median(sds$b2))),
+#                              mu2=rnorm(nr,c(mns$mu2,median(mns$mu2)),c(sds$mu2,median(sds$mu2))),
+#                              sigma1=rnorm(nr,c(mns$sigma1,median(mns$sigma1)),c(sds$sigma1,median(sds$sigma1))),
+#                              sigma2=rnorm(nr,c(mns$sigma2,median(mns$sigma2)),c(sds$sigma2,median(sds$sigma2))),
+#                              a1=rnorm(nr,c(mns$a1,median(mns$a1)),c(sds$a1,median(sds$a1))),
+#                              a2=rnorm(nr,c(mns$a2,median(mns$a2)),c(sds$a2,median(sds$a2))))
+# # save(mns,sds,haminits,file="forinits.Rdata")
+
+
+ncores <- 10
+
+
+## had a bit of an issue getting the input data formatted correctly.  This is a way to do ONE test run
+## rather than an infinite loop when the issue is with the data, not the MCMC!
+# chin_hieroutTEST <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=1000, tryitonce=T, inits=haminits1) #
+# chum_hieroutTEST <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=1000, tryitonce=T, inits=haminits1) # 
+
+Cchin_hieroutTEST <- runHamachan(y1=Cchin_histo_counts, n.iter=1000, tryitonce=T) #, inits=haminits1
+Cchum_hieroutTEST <- runHamachan(y1=Cchum_histo_counts, n.iter=1000, tryitonce=T) # , inits=haminits1
+Schin_hieroutTEST <- runHamachan(y1=Schin_histo_counts, n.iter=1000, tryitonce=T) #, inits=haminits1
+Schum_hieroutTEST <- runHamachan(y1=Schum_histo_counts, n.iter=1000, tryitonce=T) # , inits=haminits1
+
+
+
+## Doing it for real - 50k takes 15 minutes if it succeeds, 100k in 30
+
+# 100k in about 25 min if it succeeds
+niter <- 200*1000   # 100k still doesn't impressively converge
+
+# chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
+# chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
+
+save_output
+if(save_output) {
+  {
+    Cchin_hierout <- runHamachan(y1=Cchin_histo_counts, n.iter=niter, msg="Cchin -") #, inits=haminits1
+    Cchum_hierout <- runHamachan(y1=Cchum_histo_counts, n.iter=niter, msg="Cchum -") #, inits=haminits1
+    Schin_hierout <- runHamachan(y1=Schin_histo_counts, n.iter=niter, msg="Schin -") #, inits=haminits1
+    Schum_hierout <- runHamachan(y1=Schum_histo_counts, n.iter=niter, msg="Schum -") #, inits=haminits1
+  }
+  
+}  else {
+  load(file="2024/Rdata/hier_runtiming2024.Rdata")
+}
+
+
+#### the diagnostic & plotting section following won't work unless the 
+#### models have been run (but that's okay)
+
+par(mfrow=c(2,2))
+plotRhats(Cchin_hierout)
+plotRhats(Cchum_hierout)
+plotRhats(Schin_hierout)
+plotRhats(Schum_hierout)
+
+traceworstRhat(Cchin_hierout, parmfrow=c(3,3))
+traceworstRhat(Cchum_hierout, parmfrow=c(3,3))  # looks overparameterized honestly
+traceworstRhat(Schin_hierout, parmfrow=c(3,3))
+traceworstRhat(Schum_hierout, parmfrow=c(3,3))
+
+# # does not seem to work
+# par(mfrow=c(2,2))
+# qq_postpred(Cchin_hierout, p="y1pp", y=as.matrix(Cchin_histo_counts))
+# qq_postpred(Cchum_hierout, p="y1pp", y=Cchum_histo_counts)
+# qq_postpred(Schin_hierout, p="y1pp", y=Schin_histo_counts)
+# qq_postpred(Schum_hierout, p="y1pp", y=Schum_histo_counts)
+
+par(mfrow=c(2,2))
+qq_postpred(ypp=Cchin_hierout$sims.list$y1pp[,,1], y=log(Cchin_histo_counts[,1]))
+for(j in 1:ncol(Cchin_histo_counts)) {
+  qq_postpred(ypp=Cchin_hierout$sims.list$y1pp[,,j], y=log(Cchin_histo_counts[,j]), add=T)
+}
+qq_postpred(ypp=Cchum_hierout$sims.list$y1pp[,,1], y=log(Cchum_histo_counts[,1]))
+for(j in 1:ncol(Cchum_histo_counts)) {
+  qq_postpred(ypp=Cchum_hierout$sims.list$y1pp[,,j], y=log(Cchum_histo_counts[,j]), add=T)
+}
+qq_postpred(ypp=Schin_hierout$sims.list$y1pp[,,1], y=log(Schin_histo_counts[,1]))
+for(j in 1:ncol(Schin_histo_counts)) {
+  qq_postpred(ypp=Schin_hierout$sims.list$y1pp[,,j], y=log(Schin_histo_counts[,j]), add=T)
+}
+qq_postpred(ypp=Schum_hierout$sims.list$y1pp[,,1], y=log(Schum_histo_counts[,1]))
+for(j in 1:ncol(Schum_histo_counts)) {
+  qq_postpred(ypp=Schum_hierout$sims.list$y1pp[,,j], y=log(Schum_histo_counts[,j]), add=T)
+}
+
+par(mfrow=c(2,2))
+# qq_postpred(ypp=Cchin_hierout$sims.list$y1pp[,,1], y=log(Cchin_histo_counts[,1]))
+for(j in ncol(Cchin_histo_counts)) {
+  qq_postpred(ypp=Cchin_hierout$sims.list$y1pp[,,j], y=log(Cchin_histo_counts[,j]))
+}
+# qq_postpred(ypp=Cchum_hierout$sims.list$y1pp[,,1], y=log(Cchum_histo_counts[,1]))
+for(j in ncol(Cchum_histo_counts)) {
+  qq_postpred(ypp=Cchum_hierout$sims.list$y1pp[,,j], y=log(Cchum_histo_counts[,j]))
+}
+# qq_postpred(ypp=Schin_hierout$sims.list$y1pp[,,1], y=log(Schin_histo_counts[,1]))
+for(j in ncol(Schin_histo_counts)) {
+  qq_postpred(ypp=Schin_hierout$sims.list$y1pp[,,j], y=log(Schin_histo_counts[,j]))
+}
+# qq_postpred(ypp=Schum_hierout$sims.list$y1pp[,,1], y=log(Schum_histo_counts[,1]))
+for(j in ncol(Schum_histo_counts)) {
+  qq_postpred(ypp=Schum_hierout$sims.list$y1pp[,,j], y=log(Schum_histo_counts[,j]))
+}
+
+# are all these equal??
+ncol(Cchin_histo_counts)
+ncol(Cchum_histo_counts)
+ncol(Schin_histo_counts)
+ncol(Schum_histo_counts)
+
+# if so...
+nyr <- ncol(Cchin_histo_counts)
+
+par(mfrow=c(2,2))
+envelope(Cchin_hierout$sims.list$y1est[,,nyr])
+points(log(Cchin_histo_counts[,nyr]))
+# envelope(exp(Cchin_hierout$sims.list$y1est[,,nyr]), log="y")
+# points(Cchin_histo_counts[,nyr])
+envelope(Cchum_hierout$sims.list$y1est[,,nyr])
+points(log(Cchum_histo_counts[,nyr]))
+envelope(Schin_hierout$sims.list$y1est[,,nyr])
+points(log(Schin_histo_counts[,nyr]))
+envelope(Schum_hierout$sims.list$y1est[,,nyr])
+points(log(Schum_histo_counts[,nyr]))
+
+plot(NA, xlim=c(1, ncol(Cchin_hierout$q50$y1est)), ylim=c(0, max(Cchin_hierout$q50$y1est)))
+plotlines <- function(x, xlab="", ylab="", main="", ...) {  # x is a matrix
+  plot(NA, xlim=c(1, nrow(x)), ylim=c(1, max(x, na.rm=TRUE)), 
+       xlab=xlab, ylab=ylab, main=main, ...=...)
+  cols <- adjustcolor(rainbow(ncol(x)), green.f=.8, red.f=.8, blue.f=.8, alpha.f=.5)
+  for(j in 1:ncol(x)) {
+    lines(x[,j], col=cols[j])
+  }
+}
+# par(mfrow=c(2,2))
+# plotlines(Cchin_hierout$q50$y1est[,apply(Cchin_histo_counts, 2, \(x) !all(is.na(x)))],
+#           main="Chena King", ylab="log escapement")
+# lines(Cchin_hierout$q50$y1est[,nyr], lwd=2)
+# points(log(Cchin_histo_counts[,nyr]), pch=16)
+# legend("topleft", lwd=2, legend=2024)
+# 
+# plotlines(Cchum_hierout$q50$y1est[,apply(Cchum_histo_counts, 2, \(x) !all(is.na(x)))],
+#           main="Chena Chum", ylab="log escapement")
+# lines(Cchum_hierout$q50$y1est[,nyr], lwd=2)
+# points(log(Cchum_histo_counts[,nyr]), pch=16)
+# legend("topleft", lwd=2, legend=2024)
+# 
+# plotlines(Schin_hierout$q50$y1est[,apply(Schin_histo_counts, 2, \(x) !all(is.na(x)))],
+#           main="Salcha King", ylab="log escapement")
+# lines(Schin_hierout$q50$y1est[,nyr], lwd=2)
+# points(log(Schin_histo_counts[,nyr]), pch=16)
+# legend("topleft", lwd=2, legend=2024)
+# 
+# plotlines(Schum_hierout$q50$y1est[,apply(Schum_histo_counts, 2, \(x) !all(is.na(x)))],
+#           main="Salcha Chum", ylab="log escapement")
+# lines(Schum_hierout$q50$y1est[,nyr], lwd=2)
+# points(log(Schum_histo_counts[,nyr]), pch=16)
+# legend("topleft", lwd=2, legend=2024)
+
+
+par(mfrow=c(2,2))
+plotlines(exp(Cchin_hierout$q50$y1est[,apply(Cchin_histo_counts, 2, \(x) !all(is.na(x)))]),
+          main="Chena King", ylab="escapement", log="y")
+lines(exp(Cchin_hierout$q50$y1est[,nyr]), lwd=2)
+points(Cchin_histo_counts[,nyr], pch=16)
+legend("topleft", lwd=2, legend=2024)
+
+plotlines(exp(Cchum_hierout$q50$y1est[,apply(Cchum_histo_counts, 2, \(x) !all(is.na(x)))]),
+          main="Chena Chum", ylab="escapement", log="y")
+lines(exp(Cchum_hierout$q50$y1est[,nyr]), lwd=2)
+points((Cchum_histo_counts[,nyr]), pch=16)
+legend("topleft", lwd=2, legend=2024)
+
+plotlines(exp(Schin_hierout$q50$y1est[,apply(Schin_histo_counts, 2, \(x) !all(is.na(x)))]),
+          main="Salcha King", ylab="escapement", log="y")
+lines(exp(Schin_hierout$q50$y1est[,nyr]), lwd=2)
+points((Schin_histo_counts[,nyr]), pch=16)
+legend("topleft", lwd=2, legend=2024)
+
+plotlines(exp(Schum_hierout$q50$y1est[,apply(Schum_histo_counts, 2, \(x) !all(is.na(x)))]),
+          main="Salcha Chum", ylab="escapement", log="y")
+lines(exp(Schum_hierout$q50$y1est[,nyr]), lwd=2)
+points((Schum_histo_counts[,nyr]), pch=16)
+legend("topleft", lwd=2, legend=2024)
+
+
+
+# save(chum_hierout, chin_hierout, file="hamachanout19.Rdata")
+# # save(chum_hierout_alt, chin_hierout_alt, file="hamachanout19_alt.Rdata")
+# 
+# # save(chum_hierout, chin_hierout, chum_hierout_alt, chin_hierout_alt, file="hamachanout19.Rdata")
+# 
+# # load(file="hamachanout19.Rdata")
+
+# load(file="hamachanout19_alt.Rdata")
+## chin_hierout <- chin_hierout_alt  # careful with this!!
+## chum_hierout <- chum_hierout_alt
+
+
+Cchin_ham <- exp(Cchin_hierout$sims.list$y1est[,,nyr])-1
+Cchum_ham <- exp(Cchum_hierout$sims.list$y1est[,,nyr])-1
+Schin_ham <- exp(Schin_hierout$sims.list$y1est[,,nyr])-1
+Schum_ham <- exp(Schum_hierout$sims.list$y1est[,,nyr])-1
+
+save_output
+if(save_output) {
+  save(Cchin_ham, Cchum_ham, Schin_ham, Schum_ham, 
+       file="2024/Rdata/hier_runtiming2024.Rdata")
+}
+
+
+# Cchin_ests2 <- Cchin_ests1
+# Cchum_ests2 <- Cchum_ests1
+# Schin_ests2 <- Schin_ests1
+# Schum_ests2 <- Schum_ests1
+
+
+
+## function to add point estimates & variance for Hamachan
+
+hierinterp <- function(x, ham, hamstart=as.Date("2024-06-23")) {
+  x1a <- matrix(nrow=hamstart-min(as.Date(rownames(x))), ncol=ncol(x))
+  x1b <- matrix(nrow=dim(ham)[2]-nrow(x)-(hamstart-min(as.Date(rownames(x)))), ncol=ncol(x))
+  colnames(x1a) <- colnames(x1b) <- colnames(x)
+  if(nrow(x1a)>0) rownames(x1a) <- as.character(hamstart-(nrow(x1a):1))
+  if(nrow(x1b)>0) rownames(x1b) <- as.character(max(as.Date(rownames(x)))+(1:nrow(x1b)))
+  x1 <- rbind(x1a,x,x1b)
+  # nr <- nrow(x)           # this only works because they start on the same date!!
+  x1$hierinterp <- apply(ham, 2, median)#[1:nr]
+  x1$hierinterp_var <- apply(ham, 2, var)#[1:nr]
+  x1$hierinterp[!is.na(x1$vis_count_expanded) | !is.na(x1$sonar_count_expanded)] <- NA
+  x1$hierinterp_var[!is.na(x1$vis_count_expanded) | !is.na(x1$sonar_count_expanded)] <- NA
+  return(x1)
+}
+nc <- min(nrow(Cchin_ests1), ncol(Cchin_ham))
+ns <- min(nrow(Schin_ests1), ncol(Schin_ham))
+Cchin_ests2 <- hierinterp(x=Cchin_ests1[1:nc,], ham=Cchin_ham[,1:nc])
+Cchum_ests2 <- hierinterp(x=Cchum_ests1[1:nc,], ham=Cchum_ham[,1:nc])
+Schin_ests2 <- hierinterp(x=Schin_ests1[1:ns,], ham=Schin_ham[,1:ns])
+Schum_ests2 <- hierinterp(x=Schum_ests1[1:ns,], ham=Schum_ham[,1:ns])
+
+
+
+
+#################################
+#
+#  7. Plotting everything!
+#
+#################################
+
+
+## all estimates
+
+plotallthethings <- function(x, ...) {
+  ests <- x[,c(2,8,19,21)]#
+  ses <- sqrt(as.matrix(x[,c(3,9,20,22)]))#
+  lo <- ests#-ses
+  hi <- ests#+ses
+  dates <- as.Date(rownames(x))
+  cols <- c(4,2,6,3)
+  # plot(NA, xlim=range(dates), ylim=c(0,max(hi,na.rm=T)), ...=...)
+  plot(dates, ests[,1], ylim=c(0,max(hi,na.rm=T)), col="white", ...=...)
+  for(i in 1:4) { #4
+    segments(x0=dates+.2*i, y0=lo[,i], y1=hi[,i], col=cols[i])
+    points(x=dates+.2*i, y=ests[,i], col=cols[i], pch=16)
+    lines(x=dates+.2*i, y=ests[,i], col=cols[i], pch=16)
+  }
+}
+par(mfrow=c(2,2))
+plotallthethings(x=Cchin_ests2, main="Chena Chinook")
+plotallthethings(x=Cchum_ests2, main="Chena Chum")
+plotallthethings(x=Schin_ests2, main="Salcha Chinook")
+plotallthethings(x=Schum_ests2, main="Salcha Chum")
+
+
+## all daily Chinook proportions
+
+plotalltheprops <- function(x1,x2, ...) {
+  ests <- x1[,c(2,8,19,21)]/(x2[,c(2,8,19,21)]+x1[,c(2,8,19,21)])
+  dates <- as.Date(rownames(x1))
+  cols <- c(4,2,6,3)
+  # plot(NA, xlim=range(dates), ylim=c(0,max(hi,na.rm=T)), ...=...)
+  plot(dates, ests[,1], ylim=c(0,1), col="white", ...=...)
+  for(i in 1:4) {
+    # segments(x0=dates+.2*i, y0=lo[,i], y1=hi[,i], col=cols[i])
+    points(x=dates+.2*i, y=ests[,i], col=cols[i], pch=16)
+    lines(x=dates+.2*i, y=ests[,i], col=cols[i], pch=16)
+  }
+}
+par(mfrow=c(2,1))
+plotalltheprops(Cchin_ests2, Cchum_ests2, main="Chena prop Chinook")
+plotalltheprops(Schin_ests2, Schum_ests2, main="Salcha prop Chinook")
+
+# ...figure out if we're truncating at 400 or 450 for 2018 analysis
+# ... perhaps investigate whether to NOT mixmodel by sex
+
+
+
+
+
+#################################
+#
+#  8. Compiling all estimates
+#
+#################################
+
+
+## "final" estimate for each day.  Visual, then sonar, then runavg interpolated, then Hamachan.
+
+makeests <- function(x) {
+  x$DailyEst <- ifelse(!is.na(x$vis_count_expanded), x$vis_count_expanded,
+                       ifelse(!is.na(x$sonar_count_expanded), x$sonar_count_expanded,
+                              ifelse(!is.na(x$interp_count), x$interp_count, x$hierinterp)))
+  x$DailyVar <- ifelse(!is.na(x$vis_count_expanded), x$vis_var_expansion,
+                       ifelse(!is.na(x$sonar_count_expanded), x$sonar_var_total,
+                              ifelse(!is.na(x$interp_count), x$interp_count, x$hierinterp_var)))
+  x$DailyMethod <- ifelse(!is.na(x$vis_count_expanded), "Visual",
+                          ifelse(!is.na(x$sonar_count_expanded), "Sonar",
+                                 ifelse(!is.na(x$interp_count), "Running Avg Interpolation", "Hier Run-timing Mod")))
+  nc <- ncol(x)
+  x <- x[,c((nc-2):nc,1:(nc-3))]
+  return(x)
+}
+Cchin_final <- makeests(x=Cchin_ests2)
+Cchum_final <- makeests(x=Cchum_ests2)
+Schin_final <- makeests(x=Schin_ests2)
+Schum_final <- makeests(x=Schum_ests2)
+
+
+
+## "final" total, according to a user-input date range.
+
+maketot <- function(x, from, to) {
+  daterange <- (as.Date(rownames(x)) >= as.Date(from)) & (as.Date(rownames(x)) <= as.Date(to))
+  return(c(sum(x$DailyEst[daterange]), sqrt(sum(x$DailyVar[daterange]))))
+}
+from="2024-06-23"
+to="2024-08-05"
+tots <- rbind(maketot(x=Cchin_final, from=from, to=to),
+              maketot(x=Cchum_final, from=from, to=to),
+              maketot(x=Schin_final, from=from, to=to),
+              maketot(x=Schum_final, from=from, to=to))
+tots1 <- data.frame(River=c("Chena","Chena","Salcha","Salcha"),
+                    Species=c("Chinook","Chum","Chinook","Chum"),
+                    Estimate=tots[,1],
+                    SE=tots[,2],
+                    StartDate=from,
+                    EndDate=to)
+
+makeprops <- function(x, from, to) {
+  daterange <- (as.Date(rownames(x)) >= as.Date(from)) & (as.Date(rownames(x)) <= as.Date(to))
+  x1 <- x[daterange, ]
+  sums <- tapply(x1$DailyEst,
+                 factor(x1$DailyMethod,
+                        levels=c("Visual", "Sonar", "Running Avg Interpolation", "Hier Run-timing Mod")),
+                 sum, na.rm=TRUE)
+  sums[is.na(sums)] <- 0
+  props <- paste(round(100*sums/sum(x1$DailyEst, na.rm=TRUE),1),"%")
+  names(props) <- names(sums)
+  return(props)
+}
+allprops <- rbind(makeprops(x=Cchin_final, from=from, to=to),
+                  makeprops(x=Cchum_final, from=from, to=to),
+                  makeprops(x=Schin_final, from=from, to=to),
+                  makeprops(x=Schum_final, from=from, to=to))
+tots2 <- cbind(tots1, allprops)
+
+# library(xlsx)
+# write.xlsx(tots1, file="ChenaSalcha2018_summary.xlsx", sheetName="SummaryTotals")
+# write.xlsx(Cchin_final, file="ChenaSalcha2018_summary.xlsx", sheetName="ChenaChinook", append=T)
+# write.xlsx(Cchum_final, file="ChenaSalcha2018_summary.xlsx", sheetName="ChenaChum", append=T)
+# write.xlsx(Schin_final, file="ChenaSalcha2018_summary.xlsx", sheetName="SalchaChinook", append=T)
+# write.xlsx(Schum_final, file="ChenaSalcha2018_summary.xlsx", sheetName="SalchaChum", append=T)
+
+save_output
+if(save_output) {
+  write.csv(tots2, file="2024/output/ChenaSalcha_SummaryTotals_2024.csv")
+  write.csv(Cchin_final, file="2024/output/ChenaSalcha_ChenaChinook_2024.csv")
+  write.csv(Cchum_final, file="2024/output/ChenaSalcha_ChenaChum_2024.csv")
+  write.csv(Schin_final, file="2024/output/ChenaSalcha_SalchaChinook_2024.csv")
+  write.csv(Schum_final, file="2024/output/ChenaSalcha_SalchaChum_2024.csv")
+}
