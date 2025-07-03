@@ -8,6 +8,7 @@ load(file="2024/Rdata/vis_2024.Rdata")
 load(file="2024/Rdata/mixmodel2024.Rdata")
 
 save_output <- FALSE  # whether to write output to external files
+run_model <- TRUE  # whether to (re)run the interpolation model
 
 
 # slightly kludgy thing for post-truncation based on input length...
@@ -868,13 +869,13 @@ Schum_hieroutTEST <- runHamachan(y1=Schum_histo_counts, n.iter=1000, tryitonce=T
 ## Doing it for real - 50k takes 15 minutes if it succeeds, 100k in 30
 
 # 100k in about 25 min if it succeeds
-niter <- 200*1000   # 100k still doesn't impressively converge
+niter <- 20*1000   # 100k still doesn't impressively converge
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
 
-save_output
-if(save_output) {
+run_model
+if(run_model) {
   {
     Cchin_hierout <- runHamachan(y1=Cchin_histo_counts, n.iter=niter, msg="Cchin -") #, inits=haminits1
     Cchum_hierout <- runHamachan(y1=Cchum_histo_counts, n.iter=niter, msg="Cchum -") #, inits=haminits1
@@ -900,6 +901,25 @@ traceworstRhat(Cchin_hierout, parmfrow=c(3,3))
 traceworstRhat(Cchum_hierout, parmfrow=c(3,3))  # looks overparameterized honestly
 traceworstRhat(Schin_hierout, parmfrow=c(3,3))
 traceworstRhat(Schum_hierout, parmfrow=c(3,3))
+
+
+tracethemall <- function(x) {
+  numrows <- nbyname(x)$y1est[1]
+  for(i in 1:numrows) {
+    tracedens_jags(x, p=paste0("y1est[",i,",32]"))
+  }
+}
+par(mfrow=c(3,3))
+tracethemall(x=Cchin_hierout)
+tracethemall(x=Cchum_hierout)
+tracethemall(x=Schin_hierout)
+tracethemall(x=Schum_hierout)
+
+##########
+# would like to try to censor the extreme n= values for each y1est[,32]
+# or better yet, the exp transformed estimates
+# then somehow visualize how sd changes wrt n=
+##########
 
 # # does not seem to work
 # par(mfrow=c(2,2))
@@ -1048,8 +1068,18 @@ save_output
 if(save_output) {
   save(Cchin_ham, Cchum_ham, Schin_ham, Schum_ham, 
        file="2024/Rdata/hier_runtiming2024.Rdata")
+} else {
+  load(file="2024/Rdata/hier_runtiming2024.Rdata")   # think about this construct
 }
 
+### taking out the most extreme values of the MCMC for each date
+censorizor <- function(x, n=1) {
+  x[-c(apply(x, 2, which.max), apply(x, 2, which.min)),]
+}
+Cchin_ham <- censorizor(Cchin_ham)
+Cchum_ham <- censorizor(Cchum_ham)
+Schin_ham <- censorizor(Schin_ham)
+Schum_ham <- censorizor(Schum_ham)
 
 # Cchin_ests2 <- Cchin_ests1
 # Cchum_ests2 <- Cchum_ests1
@@ -1096,10 +1126,10 @@ Schum_ests2 <- hierinterp(x=Schum_ests1[1:ns,], ham=Schum_ham[,1:ns])
 plotallthethings <- function(x, ...) {
   ests <- x[,c(2,8,19,21)]#
   ses <- sqrt(as.matrix(x[,c(3,9,20,22)]))#
-  lo <- ests#-ses
-  hi <- ests#+ses
+  lo <- ests-ses
+  hi <- ests+ses
   dates <- as.Date(rownames(x))
-  cols <- c(4,2,6,3)
+  cols <- c(4,2,5,3)
   # plot(NA, xlim=range(dates), ylim=c(0,max(hi,na.rm=T)), ...=...)
   plot(dates, ests[,1], ylim=c(0,max(hi,na.rm=T)), col="white", ...=...)
   for(i in 1:4) { #4
@@ -1110,6 +1140,8 @@ plotallthethings <- function(x, ...) {
 }
 par(mfrow=c(2,2))
 plotallthethings(x=Cchin_ests2, main="Chena Chinook")
+legend("topleft", col=c(4,2,5,3), pch=16, lty=1, 
+       legend=c("Visual","Sonar","Running Avg", "Hier Mod"))
 plotallthethings(x=Cchum_ests2, main="Chena Chum")
 plotallthethings(x=Schin_ests2, main="Salcha Chinook")
 plotallthethings(x=Schum_ests2, main="Salcha Chum")

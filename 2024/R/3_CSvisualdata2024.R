@@ -5,7 +5,7 @@
 #################################
 
 
-save_output <- FALSE   ## whether to write output to an external file
+save_output <- TRUE#FALSE   ## whether to write output to an external file
 
 
 
@@ -84,7 +84,35 @@ table(as.matrix(Chena_2024_Chum_vis[,3:10])[as.matrix(Chena_2024_Clarity_vis[,3:
 table(as.matrix(Salcha_2024_Chin_vis[,3:10])[as.matrix(Salcha_2024_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
 table(as.matrix(Salcha_2024_Chum_vis[,3:10])[as.matrix(Salcha_2024_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
 
-# fixing
+
+
+# investigating another data problem I randomly found..
+# - clarity values entered as counts
+Cchin_check <- Cchum_check <- Schin_check <- Schum_check <- NA
+checker <- function(x1,x2) (!is.na(x1) & !is.na(x2)) & x1==x2
+for(i in 1:nrow(Chena_2024_Chin_vis)) {
+  # Cchin_check[i] <- sum(!is.na(Chena_2024_Chin_vis[1,3:10]) & 
+  #                         !is.na(Chena_2024_Clarity_vis[1,3:10]) & 
+  #                         Chena_2024_Chin_vis[1,3:10] == 
+  #                         Chena_2024_Clarity_vis[1,3:10])
+  Cchin_check[i] <- sum(checker(Chena_2024_Chin_vis[i, 3:10], Chena_2024_Clarity_vis[i,3:10]))
+  Cchum_check[i] <- sum(checker(Chena_2024_Chum_vis[i, 3:10], Chena_2024_Clarity_vis[i,3:10]))
+  Schin_check[i] <- sum(checker(Salcha_2024_Chin_vis[i, 3:10], Salcha_2024_Clarity_vis[i,3:10]))
+  Schum_check[i] <- sum(checker(Salcha_2024_Chum_vis[i, 3:10], Salcha_2024_Clarity_vis[i,3:10]))
+}
+
+cbind(Cchin_check, Chena_2024_Chin_vis, 
+      Chena_2024_Chin_vis[, 3:10] == Chena_2024_Clarity_vis[,3:10])[Cchin_check>0,]
+cbind(Cchum_check, Chena_2024_Chum_vis, 
+      Chena_2024_Chum_vis[, 3:10] == Chena_2024_Clarity_vis[,3:10])[Cchum_check>0,]
+cbind(Schin_check, Salcha_2024_Chin_vis, 
+      Salcha_2024_Chin_vis[, 3:10] == Salcha_2024_Clarity_vis[,3:10])[Schin_check>0,]
+cbind(Schum_check, Salcha_2024_Chum_vis, 
+      Salcha_2024_Chum_vis[, 3:10] == Salcha_2024_Clarity_vis[,3:10])[Schum_check>0,]
+
+
+
+# fixing basic imputation stuff
 for(j in 3:10) {
   ## data fix: counts when clarity is 4, 5 or -1 should be NA
   Chena_2024_Chin_vis[,j][Chena_2024_Clarity_vis[,j] %in% c(-1,4,5)] <- NA
@@ -115,7 +143,10 @@ table(as.matrix(is.na(Salcha_2024_Chum_vis[,3:10])),
       as.matrix(Salcha_2024_Clarity_vis[,3:10]))
 
 
+
+
 #### saving output
+save_output
 if(save_output) {
   save(Chena_2024_Chin_vis, Chena_2024_Chum_vis, 
        Salcha_2024_Chin_vis, Salcha_2024_Chum_vis,
