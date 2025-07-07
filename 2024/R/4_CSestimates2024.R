@@ -8,7 +8,7 @@ load(file="2024/Rdata/vis_2024.Rdata")
 load(file="2024/Rdata/mixmodel2024.Rdata")
 
 save_output <- FALSE  # whether to write output to external files
-run_model <- TRUE  # whether to (re)run the interpolation model
+run_model <- FALSE  # TRUE  # whether to (re)run the interpolation model
 
 
 # slightly kludgy thing for post-truncation based on input length...
@@ -851,7 +851,7 @@ runHamachan <- function(y1,n.iter=5000,msg="",tryitonce=F,...) {
 # # save(mns,sds,haminits,file="forinits.Rdata")
 
 
-ncores <- 10
+ncores <- 6#10
 
 
 ## had a bit of an issue getting the input data formatted correctly.  This is a way to do ONE test run
@@ -859,17 +859,18 @@ ncores <- 10
 # chin_hieroutTEST <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=1000, tryitonce=T, inits=haminits1) #
 # chum_hieroutTEST <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=1000, tryitonce=T, inits=haminits1) # 
 
-Cchin_hieroutTEST <- runHamachan(y1=Cchin_histo_counts, n.iter=1000, tryitonce=T) #, inits=haminits1
-Cchum_hieroutTEST <- runHamachan(y1=Cchum_histo_counts, n.iter=1000, tryitonce=T) # , inits=haminits1
-Schin_hieroutTEST <- runHamachan(y1=Schin_histo_counts, n.iter=1000, tryitonce=T) #, inits=haminits1
-Schum_hieroutTEST <- runHamachan(y1=Schum_histo_counts, n.iter=1000, tryitonce=T) # , inits=haminits1
-
+if(run_model) {
+  Cchin_hieroutTEST <- runHamachan(y1=Cchin_histo_counts, n.iter=1000, tryitonce=T) #, inits=haminits1
+  Cchum_hieroutTEST <- runHamachan(y1=Cchum_histo_counts, n.iter=1000, tryitonce=T) # , inits=haminits1
+  Schin_hieroutTEST <- runHamachan(y1=Schin_histo_counts, n.iter=1000, tryitonce=T) #, inits=haminits1
+  Schum_hieroutTEST <- runHamachan(y1=Schum_histo_counts, n.iter=1000, tryitonce=T) # , inits=haminits1
+}
 
 
 ## Doing it for real - 50k takes 15 minutes if it succeeds, 100k in 30
 
 # 100k in about 25 min if it succeeds
-niter <- 20*1000   # 100k still doesn't impressively converge
+niter <- 200*1000   # 100k still doesn't impressively converge
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
@@ -1073,13 +1074,49 @@ if(save_output) {
 }
 
 ### taking out the most extreme values of the MCMC for each date
+
+Cchin_ham0 <- Cchin_ham
+Cchum_ham0 <- Cchum_ham
+Schin_ham0 <- Schin_ham
+Schum_ham0 <- Schum_ham
+
 censorizor <- function(x, n=1) {
-  x[-c(apply(x, 2, which.max), apply(x, 2, which.min)),]
+  # x[-c(apply(x, 2, which.max), apply(x, 2, which.min)),]
+  
+  # # taking out JUST extreme vals, assuming columns are independent
+  # x1 <- apply(x, 2, \(y) y[!(rank(y, ties.method="first") %in% c(1:n, (length(y)-(0:(n-1)))))])
+  
+  # taking out all MCMC samples associated with extreme vals
+  takethese <- unique(as.numeric(apply(x, 2, \(y) which(rank(y, ties.method="first") %in% c(1:n, (length(y)-(0:(n-1))))))))
+  x1 <- x[-takethese,]
+  
+  return(x1)
 }
-Cchin_ham <- censorizor(Cchin_ham)
-Cchum_ham <- censorizor(Cchum_ham)
-Schin_ham <- censorizor(Schin_ham)
-Schum_ham <- censorizor(Schum_ham)
+Cchin_ham <- censorizor(x=Cchin_ham0, n=2)
+Cchum_ham <- censorizor(Cchum_ham0)
+Schin_ham <- censorizor(Schin_ham0)
+Schum_ham <- censorizor(Schum_ham0)
+
+par(mfrow=c(3,3))
+for(j in 1:ncol(Cchin_ham)) plot(Cchin_ham[,j])
+for(j in 1:ncol(Cchin_ham)) plot(Cchum_ham[,j])
+for(j in 1:ncol(Cchin_ham)) plot(Schin_ham[,j])
+for(j in 1:ncol(Cchin_ham)) plot(Schum_ham[,j])
+
+# trying values of n (num extreme values) to take out
+ns <- 1:10
+Cchin_totsd <- Cchum_totsd <- Schin_totsd <- Schum_totsd <- NA*ns
+for(i in seq_along(ns)) {
+  Cchin_totsd[i] <- sqrt(sum(apply(censorizor(Cchin_ham0, n=ns[i]), 2, var)))
+  Cchum_totsd[i] <- sqrt(sum(apply(censorizor(Cchum_ham0, n=ns[i]), 2, var)))
+  Schin_totsd[i] <- sqrt(sum(apply(censorizor(Schin_ham0, n=ns[i]), 2, var)))
+  Schum_totsd[i] <- sqrt(sum(apply(censorizor(Schum_ham0, n=ns[i]), 2, var)))
+}
+par(mfrow=c(2,2))
+plot(Cchin_totsd)
+plot(Cchum_totsd)
+plot(Schin_totsd)
+plot(Schum_totsd)
 
 # Cchin_ests2 <- Cchin_ests1
 # Cchum_ests2 <- Cchum_ests1
