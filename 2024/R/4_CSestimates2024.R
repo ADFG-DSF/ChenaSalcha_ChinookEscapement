@@ -7,8 +7,8 @@ load(file="2024/Rdata/sonardata2024.Rdata")
 load(file="2024/Rdata/vis_2024.Rdata")
 load(file="2024/Rdata/mixmodel2024.Rdata")
 
-save_output <- FALSE  # whether to write output to external files
-run_model <- FALSE  # TRUE  # whether to (re)run the interpolation model
+save_output <- TRUE  # FALSE  # whether to write output to external files
+run_model <- TRUE  # FALSE  # TRUE  # whether to (re)run the interpolation model
 
 
 # slightly kludgy thing for post-truncation based on input length...
@@ -474,9 +474,9 @@ plot_ests(x=Schum_ests, main="Salcha Chum")
 ## with the threshold approach output.
 
 par(mfrow=c(2,1))
-mosaicplot(date~(length>=650), data=subset(all_fish, river=="Chena"), main="Chena")
+# mosaicplot(date~(length>=650), data=subset(all_fish, river=="Chena"), main="Chena")
 mosaicplot(date~(length>=650), data=subset(all_fish, river=="Salcha"), main="Salcha")
-mosaicplot(date~(modlength>=650), data=subset(all_fish, river=="Chena"), main="Chena")
+# mosaicplot(date~(modlength>=650), data=subset(all_fish, river=="Chena"), main="Chena")
 mosaicplot(date~(modlength>=650), data=subset(all_fish, river=="Salcha"), main="Salcha")
 
 
@@ -693,7 +693,7 @@ cat('model {
   for(i in 1:nyrs) {
     # Normal distribution Positive only 
     #  a: is independent not hierarchical 
-    a1[i] ~ dnorm(0,0.00001)T(0,)
+    a1[i] ~ dnorm(0,0.05)T(0,)            # was dnorm(0,0.00001), 0.05 worked okay
     b1[i] ~ dnorm(b01,b01.prec)T(0.16,)
     # b1[i] <- b2[i]
     # mu1[i] ~ dnorm(mu01,mu01.prec)T(0,)
@@ -784,7 +784,7 @@ runHamachan <- function(y1,n.iter=5000,msg="",tryitonce=F,...) {
     if(tryitonce) {
       hiermod2_jags_out <- jagsUI::jags(model.file=hiermod2_jags,
                                         data=hiermod2_jags_data, 
-                                        parameters.to.save=c("y1est","b1","mu1","sigma1","a1",
+                                        parameters.to.save=c("y1est","b1","mu1","sigma1","a1","theta1",
                                                              "y1pp",
                                                              "b01", "b01.sigma", "mu01", "mu01.sigma"), 
                                         n.chains=ncores, parallel=T, n.iter=n.iter, n.burnin=n.iter/2, n.adapt=n.iter/10, n.thin=n.iter/1000,
@@ -793,7 +793,7 @@ runHamachan <- function(y1,n.iter=5000,msg="",tryitonce=F,...) {
     }
     else hiermod2_jags_out <- tryCatch(jagsUI::jags(model.file=hiermod2_jags,
                                                     data=hiermod2_jags_data, 
-                                                    parameters.to.save=c("y1est","b1","mu1","sigma1","a1",
+                                                    parameters.to.save=c("y1est","b1","mu1","sigma1","a1","theta1",
                                                                          "y1pp",
                                                                          "b01", "b01.sigma", "mu01", "mu01.sigma"), 
                                                     n.chains=ncores, parallel=T, n.iter=n.iter, n.burnin=n.iter/2, n.adapt=n.iter/10, n.thin=n.iter/1000,
@@ -851,26 +851,25 @@ runHamachan <- function(y1,n.iter=5000,msg="",tryitonce=F,...) {
 # # save(mns,sds,haminits,file="forinits.Rdata")
 
 
-ncores <- 6#10
+ncores <- 8
 
 
 ## had a bit of an issue getting the input data formatted correctly.  This is a way to do ONE test run
 ## rather than an infinite loop when the issue is with the data, not the MCMC!
 # chin_hieroutTEST <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=1000, tryitonce=T, inits=haminits1) #
 # chum_hieroutTEST <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=1000, tryitonce=T, inits=haminits1) # 
-
-if(run_model) {
+test_model <- FALSE
+if(test_model) {
   Cchin_hieroutTEST <- runHamachan(y1=Cchin_histo_counts, n.iter=1000, tryitonce=T) #, inits=haminits1
   Cchum_hieroutTEST <- runHamachan(y1=Cchum_histo_counts, n.iter=1000, tryitonce=T) # , inits=haminits1
   Schin_hieroutTEST <- runHamachan(y1=Schin_histo_counts, n.iter=1000, tryitonce=T) #, inits=haminits1
   Schum_hieroutTEST <- runHamachan(y1=Schum_histo_counts, n.iter=1000, tryitonce=T) # , inits=haminits1
 }
 
-
 ## Doing it for real - 50k takes 15 minutes if it succeeds, 100k in 30
 
 # 100k in about 25 min if it succeeds
-niter <- 200*1000   # 100k still doesn't impressively converge
+niter <- 100*1000#2000*1000   # 100k still doesn't impressively converge
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
@@ -903,6 +902,24 @@ traceworstRhat(Cchum_hierout, parmfrow=c(3,3))  # looks overparameterized honest
 traceworstRhat(Schin_hierout, parmfrow=c(3,3))
 traceworstRhat(Schum_hierout, parmfrow=c(3,3))
 
+tracedens_jags(Cchin_hierout, p=c("b1[32]", "mu1[32]", "sigma1[32]", "a1[32]"), parmfrow=c(2,2))
+tracedens_jags(Cchum_hierout, p=c("b1[32]", "mu1[32]", "sigma1[32]", "a1[32]"), parmfrow=c(2,2))
+tracedens_jags(Schin_hierout, p=c("b1[32]", "mu1[32]", "sigma1[32]", "a1[32]"), parmfrow=c(2,2))
+tracedens_jags(Schum_hierout, p=c("b1[32]", "mu1[32]", "sigma1[32]", "a1[32]"), parmfrow=c(2,2))
+
+tracedens_jags(Cchin_hierout, p=c(paste0("theta1[", which.max(Cchin_hierout$Rhat$theta1[,32]),",32]"),
+                                  paste0("y1est[", which.max(Cchin_hierout$Rhat$y1est[,32]),",32]")))
+tracedens_jags(Cchum_hierout, p=c(paste0("theta1[", which.max(Cchum_hierout$Rhat$theta1[,32]),",32]"),
+                                  paste0("y1est[", which.max(Cchum_hierout$Rhat$y1est[,32]),",32]")))
+tracedens_jags(Schin_hierout, p=c(paste0("theta1[", which.max(Schin_hierout$Rhat$theta1[,32]),",32]"),
+                                  paste0("y1est[", which.max(Schin_hierout$Rhat$y1est[,32]),",32]")))
+tracedens_jags(Schum_hierout, p=c(paste0("theta1[", which.max(Schum_hierout$Rhat$theta1[,32]),",32]"),
+                                  paste0("y1est[", which.max(Schum_hierout$Rhat$y1est[,32]),",32]")))
+
+caterpillar(Cchin_hierout, p="a1")
+caterpillar(Cchum_hierout, p="a1")
+caterpillar(Schin_hierout, p="a1")
+caterpillar(Schum_hierout, p="a1")
 
 tracethemall <- function(x) {
   numrows <- nbyname(x)$y1est[1]
@@ -1080,6 +1097,24 @@ Cchum_ham0 <- Cchum_ham
 Schin_ham0 <- Schin_ham
 Schum_ham0 <- Schum_ham
 
+lognV <- function(mu, sig) {
+  (exp(sig^2)-1)*(exp((2*mu) + (sig^2)))
+}
+
+Cchin_vtheo <- lognV(mu=Cchin_hierout$q50$theta1[,nyr],
+                     sig=sqrt((Cchin_hierout$q50$sigma1[nyr]^2) +
+                                (Cchin_hierout$sd$theta1[,nyr]^2)))
+Cchum_vtheo <- lognV(mu=Cchum_hierout$q50$theta1[,nyr],
+                     sig=sqrt((Cchum_hierout$q50$sigma1[nyr]^2) +
+                                (Cchum_hierout$sd$theta1[,nyr]^2)))
+Schin_vtheo <- lognV(mu=Schin_hierout$q50$theta1[,nyr],
+                     sig=sqrt((Schin_hierout$q50$sigma1[nyr]^2) +
+                                (Schin_hierout$sd$theta1[,nyr]^2)))
+Schum_vtheo <- lognV(mu=Schum_hierout$q50$theta1[,nyr],
+                     sig=sqrt((Schum_hierout$q50$sigma1[nyr]^2) +
+                                (Schum_hierout$sd$theta1[,nyr]^2)))
+
+
 censorizor <- function(x, n=1) {
   # x[-c(apply(x, 2, which.max), apply(x, 2, which.min)),]
   
@@ -1090,33 +1125,65 @@ censorizor <- function(x, n=1) {
   takethese <- unique(as.numeric(apply(x, 2, \(y) which(rank(y, ties.method="first") %in% c(1:n, (length(y)-(0:(n-1))))))))
   x1 <- x[-takethese,]
   
-  return(x1)
+  if(n==0) {
+    return(x)
+  } else {
+    return(x1)
+  }
 }
-Cchin_ham <- censorizor(x=Cchin_ham0, n=2)
-Cchum_ham <- censorizor(Cchum_ham0)
-Schin_ham <- censorizor(Schin_ham0)
-Schum_ham <- censorizor(Schum_ham0)
+
+# trying values of n (num extreme values) to take out
+# - actually only need to sum the date range of interest
+rownames(Cchin_ests)[44] # aug 5 is the last date of interest
+
+ns <- 0:50
+Cchin_totsd <- Cchum_totsd <- Schin_totsd <- Schum_totsd <- NA*ns
+for(i in seq_along(ns)) {
+  # # assuming daily estimates are independent
+  # Cchin_totsd[i] <- sqrt(sum(apply(censorizor(Cchin_ham0[,1:44], n=ns[i]), 2, var)))
+  # Cchum_totsd[i] <- sqrt(sum(apply(censorizor(Cchum_ham0[,1:44], n=ns[i]), 2, var)))
+  # Schin_totsd[i] <- sqrt(sum(apply(censorizor(Schin_ham0[,1:44], n=ns[i]), 2, var)))
+  # Schum_totsd[i] <- sqrt(sum(apply(censorizor(Schum_ham0[,1:44], n=ns[i]), 2, var)))
+  
+  # assuming daily estimates have covariance (only makes sense for method 2 above)
+  Cchin_totsd[i] <- sd(rowSums(censorizor(Cchin_ham0[,1:44], n=ns[i])))
+  Cchum_totsd[i] <- sd(rowSums(censorizor(Cchum_ham0[,1:44], n=ns[i])))
+  Schin_totsd[i] <- sd(rowSums(censorizor(Schin_ham0[,1:44], n=ns[i])))
+  Schum_totsd[i] <- sd(rowSums(censorizor(Schum_ham0[,1:44], n=ns[i])))
+}
+par(mfrow=c(2,2))
+plot(ns, Cchin_totsd)  #171494.030 at nn=4 with method 2
+abline(h=sqrt(sum(Cchin_vtheo[1:44])), lty=3)
+plot(ns, Cchum_totsd)
+abline(h=sqrt(sum(Cchum_vtheo[1:44])), lty=3)
+plot(ns, Schin_totsd)
+abline(h=sqrt(sum(Schin_vtheo[1:44])), lty=3)
+plot(ns, Schum_totsd)
+abline(h=sqrt(sum(Schum_vtheo[1:44])), lty=3)
+
+plot(ns, Cchin_totsd, log="y")
+abline(h=sqrt(sum(Cchin_vtheo[1:44])), lty=3)
+plot(ns, Cchum_totsd, log="y")
+abline(h=sqrt(sum(Cchum_vtheo[1:44])), lty=3)
+plot(ns, Schin_totsd, log="y")
+abline(h=sqrt(sum(Schin_vtheo[1:44])), lty=3)
+plot(ns, Schum_totsd, log="y")
+abline(h=sqrt(sum(Schum_vtheo[1:44])), lty=3)
+
+head(Cchin_totsd)
+
+
+nn <- 1
+Cchin_ham <- censorizor(x=Cchin_ham0, n=nn)
+Cchum_ham <- censorizor(Cchum_ham0, n=nn)
+Schin_ham <- censorizor(Schin_ham0, n=nn)
+Schum_ham <- censorizor(Schum_ham0, n=nn)
 
 par(mfrow=c(3,3))
 for(j in 1:ncol(Cchin_ham)) plot(Cchin_ham[,j])
 for(j in 1:ncol(Cchin_ham)) plot(Cchum_ham[,j])
 for(j in 1:ncol(Cchin_ham)) plot(Schin_ham[,j])
 for(j in 1:ncol(Cchin_ham)) plot(Schum_ham[,j])
-
-# trying values of n (num extreme values) to take out
-ns <- 1:10
-Cchin_totsd <- Cchum_totsd <- Schin_totsd <- Schum_totsd <- NA*ns
-for(i in seq_along(ns)) {
-  Cchin_totsd[i] <- sqrt(sum(apply(censorizor(Cchin_ham0, n=ns[i]), 2, var)))
-  Cchum_totsd[i] <- sqrt(sum(apply(censorizor(Cchum_ham0, n=ns[i]), 2, var)))
-  Schin_totsd[i] <- sqrt(sum(apply(censorizor(Schin_ham0, n=ns[i]), 2, var)))
-  Schum_totsd[i] <- sqrt(sum(apply(censorizor(Schum_ham0, n=ns[i]), 2, var)))
-}
-par(mfrow=c(2,2))
-plot(Cchin_totsd)
-plot(Cchum_totsd)
-plot(Schin_totsd)
-plot(Schum_totsd)
 
 # Cchin_ests2 <- Cchin_ests1
 # Cchum_ests2 <- Cchum_ests1
@@ -1275,6 +1342,30 @@ allprops <- rbind(makeprops(x=Cchin_final, from=from, to=to),
                   makeprops(x=Schin_final, from=from, to=to),
                   makeprops(x=Schum_final, from=from, to=to))
 tots2 <- cbind(tots1, allprops)
+tots2
+
+
+# need to incorporate the additional summation variance due to covariance 
+# in the hamachan model!!
+inflationizer <- function(est_summary, ham, from, to) {
+  daterange <- which((as.Date(rownames(est_summary)) >= as.Date(from)) & 
+                       (as.Date(rownames(est_summary)) <= as.Date(to)) &
+                       (est_summary$DailyMethod == "Hier Run-timing Mod"))
+  daterange_orig <- which((as.Date(rownames(est_summary)) >= as.Date(from)) & 
+                       (as.Date(rownames(est_summary)) <= as.Date(to)))
+  
+  vsum_raw <- sum(est_summary$DailyVar[daterange])  # raw sum of var for hamachan dates
+  vsum_withcov <- var(rowSums(ham[,daterange]))     # total var for hamachan dates
+  
+  vsum_all <- sum(est_summary$DailyVar[daterange_orig]) # raw sum of var for all dates
+  return(sqrt(vsum_all - vsum_raw + vsum_withcov))      # adding in var due to covariance
+}
+tots3 <- tots2
+tots3$SE <- c(inflationizer(est_summary=Cchin_final, ham=Cchin_ham, from=from, to=to),
+              inflationizer(est_summary=Cchum_final, ham=Cchum_ham, from=from, to=to),
+              inflationizer(est_summary=Schin_final, ham=Schin_ham, from=from, to=to),
+              inflationizer(est_summary=Schum_final, ham=Schum_ham, from=from, to=to))
+tots3
 
 # library(xlsx)
 # write.xlsx(tots1, file="ChenaSalcha2018_summary.xlsx", sheetName="SummaryTotals")
@@ -1285,7 +1376,7 @@ tots2 <- cbind(tots1, allprops)
 
 save_output
 if(save_output) {
-  write.csv(tots2, file="2024/output/ChenaSalcha_SummaryTotals_2024.csv")
+  write.csv(tots3, file="2024/output/ChenaSalcha_SummaryTotals_2024.csv")
   write.csv(Cchin_final, file="2024/output/ChenaSalcha_ChenaChinook_2024.csv")
   write.csv(Cchum_final, file="2024/output/ChenaSalcha_ChenaChum_2024.csv")
   write.csv(Schin_final, file="2024/output/ChenaSalcha_SalchaChinook_2024.csv")
