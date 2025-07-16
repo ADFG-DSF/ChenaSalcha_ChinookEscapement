@@ -1,3 +1,17 @@
+## The purpose of this script is to apply the expansion methods to the visual
+## data and the sonar (mixture) model output, and to apply the running average
+## interpolation and hierarchical run-timing (Hamachan) model as appropriate
+## to fill in missing dates.
+
+## This script then compiles all estimates into output spreadsheets (.csv) for 
+## each River x Species.
+
+## Note: much of this script is devoted to running the Hamachan model.  Since 
+## the Chena was so data-limited, the model was very unstable, resulting in 
+## a handful of wild MCMC samples that vastly inflated the overall variance.
+## In future years this might not be so much of a problem!
+
+
 library(tidyverse)
 library(jagsUI)
 library(jagshelper)
@@ -11,7 +25,16 @@ save_output <- TRUE  # FALSE  # whether to write output to external files
 run_model <- FALSE  # TRUE  # TRUE  # whether to (re)run the interpolation model
 
 
-# slightly kludgy thing for post-truncation based on input length...
+
+
+######################################################
+#
+#   expanding the mixture model (sonar) output
+#
+######################################################
+
+
+# slightly kludgy thing for post-truncation of sonar based on input length...
 ## in past years, 450 seemed to work best.  Not so obvious this year!
 trunc <- 450
 
@@ -305,6 +328,17 @@ S650down_expanded <- expansion_sheet(SN_650down+SS_650down)
 
 
 
+
+
+######################################################
+#
+#   expanding the visual data
+#
+######################################################
+
+
+
+
 ## Re-expressing the visual counts in the same array format as the sonar totals.
 ## Note: visual counts were only conducted for the top (first 20-min) block of 
 ## each hour, so visual data is only filled in for [,,,1]
@@ -435,6 +469,18 @@ checkthem(ests=Schum_ests, sheet=Schum_sheet)
 
 
 
+
+
+
+
+######################################################
+#
+#   plotting the visual vs sonar counts for both species
+#
+######################################################
+
+
+
 ## kludgy function for plotting all 3 sources of estimates (visual, sonar, 650mm threshold)
 
 plot_ests <- function(x,...) {
@@ -479,6 +525,15 @@ mosaicplot(date~(length>=650), data=subset(all_fish, river=="Salcha"), main="Sal
 # mosaicplot(date~(modlength>=650), data=subset(all_fish, river=="Chena"), main="Chena")
 mosaicplot(date~(modlength>=650), data=subset(all_fish, river=="Salcha"), main="Salcha")
 
+
+
+
+
+######################################################
+#
+#   Applying the running average method and Hamachan model
+#
+######################################################
 
 
 ## Applying the running-average interpolation method where applicable, then the 
@@ -579,94 +634,97 @@ Cchum_histo_counts$count2024 <- getests(Cchum_ests1[1:nrow(Cchum_histo_counts),]
 Schin_histo_counts$count2024[1:nrow(Schin_ests1)] <- getests(Schin_ests1)
 Schum_histo_counts$count2024[1:nrow(Schin_ests1)] <- getests(Schum_ests1)
 
-
-hiermod1_jags <- tempfile()
-cat('model {
-    
-  for(j in 1:nyrs) {
-    for(i in 1:ndays){
-    y1[i,j] ~ dnorm(theta1[i,j], tausq1[j])
-      #    y1[i,j] ~ dpois(theta1[i,j])    
-      # Assume that run timing distribution takes log normal distribution 
-      theta1[i,j] <- a1[j]*exp(-0.5*pow(log(x[i]/mu1[j])/b1[j],2))
-      # Assume that run timing distribution takes Extreme value distribution 
-        # theta1[i,j] <- a1[j]*exp(-exp(-(x[i]-mu1[j])/b1[j])-(x[i]-mu1[j])/b1[j]+1)
-      # Assume that run timing distribution takes log-logistic distribution 
-        # theta1[i,j] <- (a1[j]*(b1[j]/mu1[j])*pow((x[i]/mu1[j]),b1[j]-1))/pow(1+pow((x[i]/mu1[j]),b1[j]),2)
-      
-      y2[i,j] ~ dnorm(theta2[i,j], tausq2[j])
-      #    y2[i,j] ~ dpois(theta2[i,j])    
-      # Assume that run timing distribution takes log normal distribution 
-      theta2[i,j] <- a2[j]*exp(-0.5*pow(log(x[i]/mu2[j])/b2[j],2))
-      # Assume that run timing distribution takes Extreme value distribution 
-      #   theta2[i,j] <- a2[j]*exp(-exp(-(x[i]-mu2[j])/b2[j])-(x[i]-mu2[j])/b2[j]+1)
-      # Assume that run timing distribution takes log-logistic distribution 
-      #   theta2[i,j] <- (a2[j]*(b2[j]/mu2[j])*pow((x[i]/mu2[j]),b2[j]-1))/pow(1+pow((x[i]/mu2[j]),b2[j]),2)   
-    }
-  }
-    # a[] indicates the maximum height (amplitude) of the function a>0
-    # mu[] indicates the function peaks when x = mu mu>0 : Peak timing
-    # b[] indicates peak width of the function b>0 standard deviation
-    
-    # Priors
-  for(i in 1:nyrs) {
-    # Normal distribution Positive only 
-    #  a: is independent not hierarchical 
-    a1[i] ~ dnorm(0,0.00001)T(0,)
-    b1[i] ~ dnorm(b01,b01.prec)T(0.16,)
-    # b1[i] <- b2[i]
-    # mu1[i] ~ dnorm(mu01,mu01.prec)T(0,)
-    # mu1[i] ~ dnorm(mu2[i],prec.mu)
-    mu1[i] <- mu2[i] + eps[i]
-    eps[i] ~ dnorm(mueps,preceps)T(-mu2[i],)
-    
-    a2[i] ~ dnorm(0,0.00001)T(0,)
-    b2[i] ~ dnorm(b02,b02.prec)T(0.16,)
-    mu2[i] ~ dnorm(mu02,mu02.prec)T(0,)   
-  }  
-  mueps ~ dnorm(0,0.01)
-  preceps <- pow(sigeps,-2)
-  sigeps ~ dunif(0,4)
-  prec.mu <- pow(sig.mu,-2)
-  sig.mu ~ dunif(0,2)
-    
-  b01 ~ dnorm(0.5,0.001)T(0.16,)
-  mu01 ~ dnorm(25,0.001)T(0,)
-  b01.prec <-1/b01.ssq 
-  b01.ssq <- b01.sigma*b01.sigma
-  b01.sigma ~ dunif(0,100)  
-  mu01.prec <-1/mu01.ssq 
-  mu01.ssq <- mu01.sigma*mu01.sigma
-  mu01.sigma ~ dunif(0,100) 
-    
-  b02 ~ dnorm(0.5,0.001)T(0.16,)
-  mu02 ~ dnorm(25,0.001)T(0,)
-  b02.prec <-1/b02.ssq 
-  b02.ssq <- b02.sigma*b02.sigma
-  b02.sigma ~ dunif(0,100)  
-  mu02.prec <-1/mu02.ssq 
-  mu02.ssq <- mu02.sigma*mu02.sigma
-  mu02.sigma ~ dunif(0,100)  
-    
-    ## This assumes that variance of each year is independent.     
-  for(i in 1:nyrs) {    
-    tausq1[i] <- pow(sigma1[i],-2)
-    sigma1[i] ~ dunif(0,100) 
-    
-    tausq2[i] <- pow(sigma2[i],-2)
-    sigma2[i] ~ dunif(0,100) 
-  }
-    
-    # Backestimate escapement 
-  for(j in 1:nyrs){
-    for(i in 1:ndays){ 
-      y1est[i,j] <- y1[i,j]
-      y2est[i,j] <- y2[i,j]
-    }
-  }
-    # missing <- sum(y1est[1:20,12])
-    
-}', file=hiermod1_jags)
+# # The previous model was intended to run both rivers together, to account for 
+# # the fact that run timing is likely related between the two.
+# # I don't think it's doing so correctly, and decided to run each river
+# # independently.
+# hiermod1_jags <- tempfile()
+# cat('model {
+#     
+#   for(j in 1:nyrs) {
+#     for(i in 1:ndays){
+#     y1[i,j] ~ dnorm(theta1[i,j], tausq1[j])
+#       #    y1[i,j] ~ dpois(theta1[i,j])    
+#       # Assume that run timing distribution takes log normal distribution 
+#       theta1[i,j] <- a1[j]*exp(-0.5*pow(log(x[i]/mu1[j])/b1[j],2))
+#       # Assume that run timing distribution takes Extreme value distribution 
+#         # theta1[i,j] <- a1[j]*exp(-exp(-(x[i]-mu1[j])/b1[j])-(x[i]-mu1[j])/b1[j]+1)
+#       # Assume that run timing distribution takes log-logistic distribution 
+#         # theta1[i,j] <- (a1[j]*(b1[j]/mu1[j])*pow((x[i]/mu1[j]),b1[j]-1))/pow(1+pow((x[i]/mu1[j]),b1[j]),2)
+#       
+#       y2[i,j] ~ dnorm(theta2[i,j], tausq2[j])
+#       #    y2[i,j] ~ dpois(theta2[i,j])    
+#       # Assume that run timing distribution takes log normal distribution 
+#       theta2[i,j] <- a2[j]*exp(-0.5*pow(log(x[i]/mu2[j])/b2[j],2))
+#       # Assume that run timing distribution takes Extreme value distribution 
+#       #   theta2[i,j] <- a2[j]*exp(-exp(-(x[i]-mu2[j])/b2[j])-(x[i]-mu2[j])/b2[j]+1)
+#       # Assume that run timing distribution takes log-logistic distribution 
+#       #   theta2[i,j] <- (a2[j]*(b2[j]/mu2[j])*pow((x[i]/mu2[j]),b2[j]-1))/pow(1+pow((x[i]/mu2[j]),b2[j]),2)   
+#     }
+#   }
+#     # a[] indicates the maximum height (amplitude) of the function a>0
+#     # mu[] indicates the function peaks when x = mu mu>0 : Peak timing
+#     # b[] indicates peak width of the function b>0 standard deviation
+#     
+#     # Priors
+#   for(i in 1:nyrs) {
+#     # Normal distribution Positive only 
+#     #  a: is independent not hierarchical 
+#     a1[i] ~ dnorm(0,0.00001)T(0,)
+#     b1[i] ~ dnorm(b01,b01.prec)T(0.16,)
+#     # b1[i] <- b2[i]
+#     # mu1[i] ~ dnorm(mu01,mu01.prec)T(0,)
+#     # mu1[i] ~ dnorm(mu2[i],prec.mu)
+#     mu1[i] <- mu2[i] + eps[i]
+#     eps[i] ~ dnorm(mueps,preceps)T(-mu2[i],)
+#     
+#     a2[i] ~ dnorm(0,0.00001)T(0,)
+#     b2[i] ~ dnorm(b02,b02.prec)T(0.16,)
+#     mu2[i] ~ dnorm(mu02,mu02.prec)T(0,)   
+#   }  
+#   mueps ~ dnorm(0,0.01)
+#   preceps <- pow(sigeps,-2)
+#   sigeps ~ dunif(0,4)
+#   prec.mu <- pow(sig.mu,-2)
+#   sig.mu ~ dunif(0,2)
+#     
+#   b01 ~ dnorm(0.5,0.001)T(0.16,)
+#   mu01 ~ dnorm(25,0.001)T(0,)
+#   b01.prec <-1/b01.ssq 
+#   b01.ssq <- b01.sigma*b01.sigma
+#   b01.sigma ~ dunif(0,100)  
+#   mu01.prec <-1/mu01.ssq 
+#   mu01.ssq <- mu01.sigma*mu01.sigma
+#   mu01.sigma ~ dunif(0,100) 
+#     
+#   b02 ~ dnorm(0.5,0.001)T(0.16,)
+#   mu02 ~ dnorm(25,0.001)T(0,)
+#   b02.prec <-1/b02.ssq 
+#   b02.ssq <- b02.sigma*b02.sigma
+#   b02.sigma ~ dunif(0,100)  
+#   mu02.prec <-1/mu02.ssq 
+#   mu02.ssq <- mu02.sigma*mu02.sigma
+#   mu02.sigma ~ dunif(0,100)  
+#     
+#     ## This assumes that variance of each year is independent.     
+#   for(i in 1:nyrs) {    
+#     tausq1[i] <- pow(sigma1[i],-2)
+#     sigma1[i] ~ dunif(0,100) 
+#     
+#     tausq2[i] <- pow(sigma2[i],-2)
+#     sigma2[i] ~ dunif(0,100) 
+#   }
+#     
+#     # Backestimate escapement 
+#   for(j in 1:nyrs){
+#     for(i in 1:ndays){ 
+#       y1est[i,j] <- y1[i,j]
+#       y2est[i,j] <- y2[i,j]
+#     }
+#   }
+#     # missing <- sum(y1est[1:20,12])
+#     
+# }', file=hiermod1_jags)
 
 
 hiermod2_jags <- tempfile()
@@ -815,6 +873,8 @@ runHamachan <- function(y1,n.iter=5000,msg="",tryitonce=F,...) {
 
 
 
+# The section below (commented out) was not needed with the simplified model.
+
 # ## This is kludgy.  In 2018 it took forever to get the model to run without erroring, so
 # ## when it finally did, I harvested some of the posterior values to use as inits in case
 # ## I had to run it again.  I saved them to an Rdata file, but here they are as hard-coded.
@@ -889,7 +949,7 @@ if(run_model) {
 
 
 #### the diagnostic & plotting section following won't work unless the 
-#### models have been run (but that's okay)
+#### models have been run.  Wrapped the full section in a logical.
 
 run_model
 if(run_model) {
@@ -934,17 +994,15 @@ tracethemall <- function(x) {
     tracedens_jags(x, p=paste0("y1est[",i,",32]"))
   }
 }
+
+### careful - this makes a LOOOOOOT of plots!
 par(mfrow=c(3,3))
 tracethemall(x=Cchin_hierout)
 tracethemall(x=Cchum_hierout)
 tracethemall(x=Schin_hierout)
 tracethemall(x=Schum_hierout)
 
-##########
-# would like to try to censor the extreme n= values for each y1est[,32]
-# or better yet, the exp transformed estimates
-# then somehow visualize how sd changes wrt n=
-##########
+
 
 # # does not seem to work
 # par(mfrow=c(2,2))
@@ -953,6 +1011,8 @@ tracethemall(x=Schum_hierout)
 # qq_postpred(Schin_hierout, p="y1pp", y=Schin_histo_counts)
 # qq_postpred(Schum_hierout, p="y1pp", y=Schum_histo_counts)
 
+
+## posterior predictive plots for all years overlayed
 par(mfrow=c(2,2))
 qq_postpred(ypp=Cchin_hierout$sims.list$y1pp[,,1], y=log(Cchin_histo_counts[,1]))
 for(j in 1:ncol(Cchin_histo_counts)) {
@@ -971,6 +1031,7 @@ for(j in 1:ncol(Schum_histo_counts)) {
   qq_postpred(ypp=Schum_hierout$sims.list$y1pp[,,j], y=log(Schum_histo_counts[,j]), add=T)
 }
 
+## posterior predictive plots for 2024 (do NOT look good, ugh)
 par(mfrow=c(2,2))
 # qq_postpred(ypp=Cchin_hierout$sims.list$y1pp[,,1], y=log(Cchin_histo_counts[,1]))
 for(j in ncol(Cchin_histo_counts)) {
@@ -995,7 +1056,7 @@ ncol(Cchum_histo_counts)
 ncol(Schin_histo_counts)
 ncol(Schum_histo_counts)
 
-# if so...
+# if so, define a variable for the index of the last year (the one we care about)
 nyr <- ncol(Cchin_histo_counts)
 
 par(mfrow=c(2,2))
@@ -1010,7 +1071,9 @@ points(log(Schin_histo_counts[,nyr]))
 envelope(Schum_hierout$sims.list$y1est[,,nyr])
 points(log(Schum_histo_counts[,nyr]))
 
-plot(NA, xlim=c(1, ncol(Cchin_hierout$q50$y1est)), ylim=c(0, max(Cchin_hierout$q50$y1est)))
+
+# plotting the estimated run (posterior median) for all years
+
 plotlines <- function(x, xlab="", ylab="", main="", ...) {  # x is a matrix
   plot(NA, xlim=c(1, nrow(x)), ylim=c(1, max(x, na.rm=TRUE)), 
        xlab=xlab, ylab=ylab, main=main, ...=...)
@@ -1019,31 +1082,6 @@ plotlines <- function(x, xlab="", ylab="", main="", ...) {  # x is a matrix
     lines(x[,j], col=cols[j])
   }
 }
-# par(mfrow=c(2,2))
-# plotlines(Cchin_hierout$q50$y1est[,apply(Cchin_histo_counts, 2, \(x) !all(is.na(x)))],
-#           main="Chena King", ylab="log escapement")
-# lines(Cchin_hierout$q50$y1est[,nyr], lwd=2)
-# points(log(Cchin_histo_counts[,nyr]), pch=16)
-# legend("topleft", lwd=2, legend=2024)
-# 
-# plotlines(Cchum_hierout$q50$y1est[,apply(Cchum_histo_counts, 2, \(x) !all(is.na(x)))],
-#           main="Chena Chum", ylab="log escapement")
-# lines(Cchum_hierout$q50$y1est[,nyr], lwd=2)
-# points(log(Cchum_histo_counts[,nyr]), pch=16)
-# legend("topleft", lwd=2, legend=2024)
-# 
-# plotlines(Schin_hierout$q50$y1est[,apply(Schin_histo_counts, 2, \(x) !all(is.na(x)))],
-#           main="Salcha King", ylab="log escapement")
-# lines(Schin_hierout$q50$y1est[,nyr], lwd=2)
-# points(log(Schin_histo_counts[,nyr]), pch=16)
-# legend("topleft", lwd=2, legend=2024)
-# 
-# plotlines(Schum_hierout$q50$y1est[,apply(Schum_histo_counts, 2, \(x) !all(is.na(x)))],
-#           main="Salcha Chum", ylab="log escapement")
-# lines(Schum_hierout$q50$y1est[,nyr], lwd=2)
-# points(log(Schum_histo_counts[,nyr]), pch=16)
-# legend("topleft", lwd=2, legend=2024)
-
 
 par(mfrow=c(2,2))
 plotlines(exp(Cchin_hierout$q50$y1est[,apply(Cchin_histo_counts, 2, \(x) !all(is.na(x)))]),
@@ -1072,17 +1110,9 @@ legend("topleft", lwd=2, legend=2024)
 
 
 
-# save(chum_hierout, chin_hierout, file="hamachanout19.Rdata")
-# # save(chum_hierout_alt, chin_hierout_alt, file="hamachanout19_alt.Rdata")
-# 
-# # save(chum_hierout, chin_hierout, chum_hierout_alt, chin_hierout_alt, file="hamachanout19.Rdata")
-# 
-# # load(file="hamachanout19.Rdata")
 
-# load(file="hamachanout19_alt.Rdata")
-## chin_hierout <- chin_hierout_alt  # careful with this!!
-## chum_hierout <- chum_hierout_alt
-
+## defining and saving simplified matrices for each River x Species
+## note: backtransformed to the natural scale
 
 Cchin_ham <- exp(Cchin_hierout$sims.list$y1est[,,nyr])-1
 Cchum_ham <- exp(Cchum_hierout$sims.list$y1est[,,nyr])-1
@@ -1101,15 +1131,18 @@ if(save_output) {
 
 ### taking out the most extreme values of the MCMC for each date
 
+# saving the unaltered state of each matrix
 Cchin_ham0 <- Cchin_ham
 Cchum_ham0 <- Cchum_ham
 Schin_ham0 <- Schin_ham
 Schum_ham0 <- Schum_ham
 
+# possible "theoretical" values for the variances
+# note: these don't work if the model has not been run, but that's unimportant.
+# just ignore all error messages below!
 lognV <- function(mu, sig) {
   (exp(sig^2)-1)*(exp((2*mu) + (sig^2)))
 }
-
 Cchin_vtheo <- lognV(mu=Cchin_hierout$q50$theta1[,nyr],
                      sig=sqrt((Cchin_hierout$q50$sigma1[nyr]^2) +
                                 (Cchin_hierout$sd$theta1[,nyr]^2)))
@@ -1123,7 +1156,8 @@ Schum_vtheo <- lognV(mu=Schum_hierout$q50$theta1[,nyr],
                      sig=sqrt((Schum_hierout$q50$sigma1[nyr]^2) +
                                 (Schum_hierout$sd$theta1[,nyr]^2)))
 
-
+# defining a function to censor the most extreme MCMC samples associated with
+# each date.  The hope was that variance would stabilize after removing just a few
 censorizor <- function(x, n=1) {
   # x[-c(apply(x, 2, which.max), apply(x, 2, which.min)),]
   
@@ -1145,7 +1179,7 @@ censorizor <- function(x, n=1) {
 # - actually only need to sum the date range of interest
 rownames(Cchin_ests)[44] # aug 5 is the last date of interest
 
-ns <- 0:50
+ns <- 0:50 # trial values of n
 Cchin_totsd <- Cchum_totsd <- Schin_totsd <- Schum_totsd <- NA*ns
 for(i in seq_along(ns)) {
   # # assuming daily estimates are independent
@@ -1160,8 +1194,10 @@ for(i in seq_along(ns)) {
   Schin_totsd[i] <- sd(rowSums(censorizor(Schin_ham0[,1:44], n=ns[i])))
   Schum_totsd[i] <- sd(rowSums(censorizor(Schum_ham0[,1:44], n=ns[i])))
 }
+
+# plotting on the natural scale
 par(mfrow=c(2,2))
-plot(ns, Cchin_totsd)  #171494.030 at nn=4 with method 2
+plot(ns, Cchin_totsd)  
 abline(h=sqrt(sum(Cchin_vtheo[1:44])), lty=3)
 plot(ns, Cchum_totsd)
 abline(h=sqrt(sum(Cchum_vtheo[1:44])), lty=3)
@@ -1170,6 +1206,7 @@ abline(h=sqrt(sum(Schin_vtheo[1:44])), lty=3)
 plot(ns, Schum_totsd)
 abline(h=sqrt(sum(Schum_vtheo[1:44])), lty=3)
 
+# plotting on the log scale
 plot(ns, Cchin_totsd, log="y")
 abline(h=sqrt(sum(Cchin_vtheo[1:44])), lty=3)
 plot(ns, Cchum_totsd, log="y")
@@ -1278,8 +1315,7 @@ par(mfrow=c(2,1))
 plotalltheprops(Cchin_ests2, Cchum_ests2, main="Chena prop Chinook")
 plotalltheprops(Schin_ests2, Schum_ests2, main="Salcha prop Chinook")
 
-# ...figure out if we're truncating at 400 or 450 for 2018 analysis
-# ... perhaps investigate whether to NOT mixmodel by sex
+
 
 
 
@@ -1375,6 +1411,8 @@ tots3$SE <- c(inflationizer(est_summary=Cchin_final, ham=Cchin_ham, from=from, t
               inflationizer(est_summary=Schin_final, ham=Schin_ham, from=from, to=to),
               inflationizer(est_summary=Schum_final, ham=Schum_ham, from=from, to=to))
 tots3
+## ^^ THIS METHOD WAS NOT USED, BUT IS RETAINED AS A CHECK ^^
+
 
 
 
@@ -1383,7 +1421,7 @@ tots3
 
 dates <- as.Date(c(paste0("2024-06-",23:30),
                    paste0("2024-07-",1:31),
-                   paste0("2024-08-",1:5)))
+                   paste0("2024-08-",1:5)))  # I don't think this is used anymore
 
 ## calculating covariance for hamachan
 ## NOTE: the seq_along in the indices only works because the start date is the same (06-23)
@@ -1494,4 +1532,8 @@ if(save_output) {
   write.csv(Cchum_final, file="2024/output/ChenaSalcha_ChenaChum_2024.csv")
   write.csv(Schin_final, file="2024/output/ChenaSalcha_SalchaChinook_2024.csv")
   write.csv(Schum_final, file="2024/output/ChenaSalcha_SalchaChum_2024.csv")
+  write.csv(Cchin_vcov, file="2024/output/ChenaSalcha_ChenaChinook_vcov_2024.csv")
+  write.csv(Cchum_vcov, file="2024/output/ChenaSalcha_ChenaChum_vcov_2024.csv")
+  write.csv(Schin_vcov, file="2024/output/ChenaSalcha_SalchaChinook_vcov_2024.csv")
+  write.csv(Schum_vcov, file="2024/output/ChenaSalcha_SalchaChum_vcov_2024.csv")
 }
