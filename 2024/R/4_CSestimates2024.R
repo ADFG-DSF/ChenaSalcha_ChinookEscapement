@@ -868,8 +868,8 @@ if(test_model) {
 
 ## Doing it for real - 50k takes 15 minutes if it succeeds, 100k in 30
 
-# 100k in about 25 min if it succeeds
-niter <- 100*1000#2000*1000   # 100k still doesn't impressively converge
+# 100k in about 25 min if it succeeds - 2000k in 8 hrs
+niter <- 2000*1000   # 100k still doesn't impressively converge
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
@@ -915,6 +915,11 @@ tracedens_jags(Schin_hierout, p=c(paste0("theta1[", which.max(Schin_hierout$Rhat
                                   paste0("y1est[", which.max(Schin_hierout$Rhat$y1est[,32]),",32]")))
 tracedens_jags(Schum_hierout, p=c(paste0("theta1[", which.max(Schum_hierout$Rhat$theta1[,32]),",32]"),
                                   paste0("y1est[", which.max(Schum_hierout$Rhat$y1est[,32]),",32]")))
+
+tracedens_jags(Cchin_hierout, p=c(paste0("y1est[",which.max(apply(Cchin_hierout$sims.list$y1est[,,32],2,max)), ",32]")))
+tracedens_jags(Cchum_hierout, p=c(paste0("y1est[",which.max(apply(Cchum_hierout$sims.list$y1est[,,32],2,max)), ",32]")))
+tracedens_jags(Schin_hierout, p=c(paste0("y1est[",which.max(apply(Schin_hierout$sims.list$y1est[,,32],2,max)), ",32]")))
+tracedens_jags(Schum_hierout, p=c(paste0("y1est[",which.max(apply(Schum_hierout$sims.list$y1est[,,32],2,max)), ",32]")))
 
 caterpillar(Cchin_hierout, p="a1")
 caterpillar(Cchum_hierout, p="a1")
@@ -1173,7 +1178,7 @@ abline(h=sqrt(sum(Schum_vtheo[1:44])), lty=3)
 head(Cchin_totsd)
 
 
-nn <- 1
+nn <- 1  # how many to actually censor!!!
 Cchin_ham <- censorizor(x=Cchin_ham0, n=nn)
 Cchum_ham <- censorizor(Cchum_ham0, n=nn)
 Schin_ham <- censorizor(Schin_ham0, n=nn)
@@ -1367,6 +1372,86 @@ tots3$SE <- c(inflationizer(est_summary=Cchin_final, ham=Cchin_ham, from=from, t
               inflationizer(est_summary=Schum_final, ham=Schum_ham, from=from, to=to))
 tots3
 
+
+
+#### Defining global covariance matrix for daily counts
+#### This is the most correct way to handle total variance of summation!!
+
+dates <- as.Date(c(paste0("2024-06-",23:30),
+                   paste0("2024-07-",1:31),
+                   paste0("2024-08-",1:5)))
+
+## calculating covariance for hamachan
+## NOTE: the seq_along in the indices only works because the start date is the same (06-23)
+Cchin_vcov_hierinterp <- cov(Cchin_ham)[seq_along(dates), seq_along(dates)]
+Cchum_vcov_hierinterp <- cov(Cchum_ham)[seq_along(dates), seq_along(dates)]
+Schin_vcov_hierinterp <- cov(Schin_ham)[seq_along(dates), seq_along(dates)]
+Schum_vcov_hierinterp <- cov(Schum_ham)[seq_along(dates), seq_along(dates)]
+
+## calculating covariance for mixture model
+# first sum by date
+S_chinmat <- chinmat[, all_fish$river=="Salcha"]
+S_chummat <- chinmat[, all_fish$river=="Salcha"]
+# C_chinmat <- chinmat[, all_fish$river=="Chena"]
+# C_chummat <- chinmat[, all_fish$river=="Chena"]
+
+S_chin_byday <- t(apply(S_chinmat, 1,
+                        \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=dates), FUN=sum)))
+S_chum_byday <- t(apply(S_chummat, 1,
+                        \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=dates), FUN=sum)))
+# C_chin_byday <- t(apply(C_chinmat, 1,
+#                         \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=dates), FUN=sum)))
+# C_chum_byday <- t(apply(C_chummat, 1,
+#                         \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=dates), FUN=sum)))
+
+# then calculate correlation matrix
+Schin_cor <- cor(S_chin_byday)
+Schum_cor <- cor(S_chum_byday)
+# Cchin_cor <- cor(C_chin_byday)
+# Cchum_cor <- cor(C_chum_byday)
+
+# then calculate vcov matrix from correlation
+Schin_vcov_mixture <- outer(sqrt(Schin_final$DailyVar[seq_along(dates)]),
+                            sqrt(Schin_final$DailyVar[seq_along(dates)])) * Schin_cor
+Schum_vcov_mixture <- outer(sqrt(Schum_final$DailyVar[seq_along(dates)]),
+                            sqrt(Schum_final$DailyVar[seq_along(dates)])) * Schum_cor
+# Cchin_vcov_mixture <- outer(sqrt(Cchin_final$DailyVar[seq_along(dates)]),
+#                             sqrt(Cchin_final$DailyVar[seq_along(dates)])) * Cchin_cor
+# Cchum_vcov_mixture <- outer(sqrt(Cchum_final$DailyVar[seq_along(dates)]),
+#                             sqrt(Cchum_final$DailyVar[seq_along(dates)])) * Cchum_cor
+
+## filling in the pieces for the total covariance matrix
+make_vcov <- function(ests, vcov_hierinterp=NULL, vcov_mixture=NULL, dd = seq_along(dates)) {
+  # be careful about dd in future years if this happens
+  tots_vcov <- matrix(0, nrow=length(dd), ncol=length(dd))
+  diag(tots_vcov) <- ests$DailyVar[dd]
+  
+  tots_vcov[ests$DailyMethod[dd]=="Hier Run-timing Mod", ests$DailyMethod[dd]=="Hier Run-timing Mod"] <-
+    vcov_hierinterp[ests$DailyMethod[dd]=="Hier Run-timing Mod", ests$DailyMethod[dd]=="Hier Run-timing Mod"]
+  
+  tots_vcov[ests$DailyMethod[dd]=="Sonar", ests$DailyMethod[dd]=="Sonar"] <-
+    vcov_mixture[ests$DailyMethod[dd]=="Sonar", ests$DailyMethod[dd]=="Sonar"]
+  
+  return(tots_vcov)
+}
+Cchin_vcov <- make_vcov(ests=Cchin_final, vcov_hierinterp=Cchin_vcov_hierinterp)
+Cchum_vcov <- make_vcov(ests=Cchum_final, vcov_hierinterp=Cchum_vcov_hierinterp)
+Schin_vcov <- make_vcov(ests=Schin_final, vcov_hierinterp=Schin_vcov_hierinterp, vcov_mixture=Schin_vcov_mixture)
+Schum_vcov <- make_vcov(ests=Schum_final, vcov_hierinterp=Schum_vcov_hierinterp, vcov_mixture=Schum_vcov_mixture)
+
+tots1$SE
+tots2$SE
+tots3$SE
+
+tots4 <- tots3
+tots4$SE <- c(sqrt(sum(Cchin_vcov)),
+sqrt(sum(Cchum_vcov)),
+sqrt(sum(Schin_vcov)),
+sqrt(sum(Schum_vcov)))
+
+tots4
+
+
 # library(xlsx)
 # write.xlsx(tots1, file="ChenaSalcha2018_summary.xlsx", sheetName="SummaryTotals")
 # write.xlsx(Cchin_final, file="ChenaSalcha2018_summary.xlsx", sheetName="ChenaChinook", append=T)
@@ -1376,7 +1461,7 @@ tots3
 
 save_output
 if(save_output) {
-  write.csv(tots3, file="2024/output/ChenaSalcha_SummaryTotals_2024.csv")
+  write.csv(tots4, file="2024/output/ChenaSalcha_SummaryTotals_2024.csv")
   write.csv(Cchin_final, file="2024/output/ChenaSalcha_ChenaChinook_2024.csv")
   write.csv(Cchum_final, file="2024/output/ChenaSalcha_ChenaChum_2024.csv")
   write.csv(Schin_final, file="2024/output/ChenaSalcha_SalchaChinook_2024.csv")
