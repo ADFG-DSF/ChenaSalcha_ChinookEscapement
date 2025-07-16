@@ -8,7 +8,7 @@ load(file="2024/Rdata/vis_2024.Rdata")
 load(file="2024/Rdata/mixmodel2024.Rdata")
 
 save_output <- TRUE  # FALSE  # whether to write output to external files
-run_model <- TRUE  # FALSE  # TRUE  # whether to (re)run the interpolation model
+run_model <- FALSE  # TRUE  # TRUE  # whether to (re)run the interpolation model
 
 
 # slightly kludgy thing for post-truncation based on input length...
@@ -891,6 +891,8 @@ if(run_model) {
 #### the diagnostic & plotting section following won't work unless the 
 #### models have been run (but that's okay)
 
+run_model
+if(run_model) {
 par(mfrow=c(2,2))
 plotRhats(Cchin_hierout)
 plotRhats(Cchum_hierout)
@@ -1093,6 +1095,8 @@ if(save_output) {
        file="2024/Rdata/hier_runtiming2024.Rdata")
 } else {
   load(file="2024/Rdata/hier_runtiming2024.Rdata")   # think about this construct
+}
+
 }
 
 ### taking out the most extreme values of the MCMC for each date
@@ -1383,10 +1387,10 @@ dates <- as.Date(c(paste0("2024-06-",23:30),
 
 ## calculating covariance for hamachan
 ## NOTE: the seq_along in the indices only works because the start date is the same (06-23)
-Cchin_vcov_hierinterp <- cov(Cchin_ham)[seq_along(dates), seq_along(dates)]
-Cchum_vcov_hierinterp <- cov(Cchum_ham)[seq_along(dates), seq_along(dates)]
-Schin_vcov_hierinterp <- cov(Schin_ham)[seq_along(dates), seq_along(dates)]
-Schum_vcov_hierinterp <- cov(Schum_ham)[seq_along(dates), seq_along(dates)]
+Cchin_vcov_hierinterp <- cov(Cchin_ham)#[seq_along(dates), seq_along(dates)]
+Cchum_vcov_hierinterp <- cov(Cchum_ham)#[seq_along(dates), seq_along(dates)]
+Schin_vcov_hierinterp <- cov(Schin_ham)#[seq_along(dates), seq_along(dates)]
+Schum_vcov_hierinterp <- cov(Schum_ham)#[seq_along(dates), seq_along(dates)]
 
 ## calculating covariance for mixture model
 # first sum by date
@@ -1395,14 +1399,17 @@ S_chummat <- chinmat[, all_fish$river=="Salcha"]
 # C_chinmat <- chinmat[, all_fish$river=="Chena"]
 # C_chummat <- chinmat[, all_fish$river=="Chena"]
 
+
+Cdates <- rownames(Cchin_final)
+Sdates <- rownames(Schin_final)
 S_chin_byday <- t(apply(S_chinmat, 1,
-                        \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=dates), FUN=sum)))
+                        \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=Sdates), FUN=sum)))
 S_chum_byday <- t(apply(S_chummat, 1,
-                        \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=dates), FUN=sum)))
+                        \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=Sdates), FUN=sum)))
 # C_chin_byday <- t(apply(C_chinmat, 1,
-#                         \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=dates), FUN=sum)))
+#                         \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=Cdates), FUN=sum)))
 # C_chum_byday <- t(apply(C_chummat, 1,
-#                         \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=dates), FUN=sum)))
+#                         \(x) tapply(X=x, INDEX=factor(all_fish$date, levels=Cdates), FUN=sum)))
 
 # then calculate correlation matrix
 Schin_cor <- cor(S_chin_byday)
@@ -1411,27 +1418,46 @@ Schum_cor <- cor(S_chum_byday)
 # Cchum_cor <- cor(C_chum_byday)
 
 # then calculate vcov matrix from correlation
-Schin_vcov_mixture <- outer(sqrt(Schin_final$DailyVar[seq_along(dates)]),
-                            sqrt(Schin_final$DailyVar[seq_along(dates)])) * Schin_cor
-Schum_vcov_mixture <- outer(sqrt(Schum_final$DailyVar[seq_along(dates)]),
-                            sqrt(Schum_final$DailyVar[seq_along(dates)])) * Schum_cor
-# Cchin_vcov_mixture <- outer(sqrt(Cchin_final$DailyVar[seq_along(dates)]),
-#                             sqrt(Cchin_final$DailyVar[seq_along(dates)])) * Cchin_cor
-# Cchum_vcov_mixture <- outer(sqrt(Cchum_final$DailyVar[seq_along(dates)]),
-#                             sqrt(Cchum_final$DailyVar[seq_along(dates)])) * Cchum_cor
+# Schin_vcov_mixture <- outer(sqrt(Schin_final$DailyVar[seq_along(dates)]),
+#                             sqrt(Schin_final$DailyVar[seq_along(dates)])) * Schin_cor
+# Schum_vcov_mixture <- outer(sqrt(Schum_final$DailyVar[seq_along(dates)]),
+#                             sqrt(Schum_final$DailyVar[seq_along(dates)])) * Schum_cor
+Schin_vcov_mixture <- outer(sqrt(Schin_final$DailyVar),
+                            sqrt(Schin_final$DailyVar)) * Schin_cor
+Schum_vcov_mixture <- outer(sqrt(Schum_final$DailyVar),
+                            sqrt(Schum_final$DailyVar)) * Schum_cor
+# Cchin_vcov_mixture <- outer(sqrt(Cchin_final$DailyVar),
+#                             sqrt(Cchin_final$DailyVar)) * Cchin_cor
+# Cchum_vcov_mixture <- outer(sqrt(Cchum_final$DailyVar),
+#                             sqrt(Cchum_final$DailyVar)) * Cchum_cor
 
 ## filling in the pieces for the total covariance matrix
-make_vcov <- function(ests, vcov_hierinterp=NULL, vcov_mixture=NULL, dd = seq_along(dates)) {
-  # be careful about dd in future years if this happens
-  tots_vcov <- matrix(0, nrow=length(dd), ncol=length(dd))
-  diag(tots_vcov) <- ests$DailyVar[dd]
+# make_vcov <- function(ests, vcov_hierinterp=NULL, vcov_mixture=NULL, dd = seq_along(dates)) {
+#   # be careful about dd in future years if this happens
+#   tots_vcov <- matrix(0, nrow=length(dd), ncol=length(dd))
+#   diag(tots_vcov) <- ests$DailyVar[dd]
+#   
+#   tots_vcov[ests$DailyMethod[dd]=="Hier Run-timing Mod", ests$DailyMethod[dd]=="Hier Run-timing Mod"] <-
+#     vcov_hierinterp[ests$DailyMethod[dd]=="Hier Run-timing Mod", ests$DailyMethod[dd]=="Hier Run-timing Mod"]
+#   
+#   tots_vcov[ests$DailyMethod[dd]=="Sonar", ests$DailyMethod[dd]=="Sonar"] <-
+#     vcov_mixture[ests$DailyMethod[dd]=="Sonar", ests$DailyMethod[dd]=="Sonar"]
+#   
+#   return(tots_vcov)
+# }
+make_vcov <- function(ests, vcov_hierinterp=NULL, vcov_mixture=NULL) {
+  # be careful about aligning all input matrices!!!!!!
+  # currently they all start at 06-23, but this might not be the case in the future
+  tots_vcov <- matrix(0, nrow=nrow(ests), ncol=nrow(ests))
+  diag(tots_vcov) <- ests$DailyVar
   
-  tots_vcov[ests$DailyMethod[dd]=="Hier Run-timing Mod", ests$DailyMethod[dd]=="Hier Run-timing Mod"] <-
-    vcov_hierinterp[ests$DailyMethod[dd]=="Hier Run-timing Mod", ests$DailyMethod[dd]=="Hier Run-timing Mod"]
+  tots_vcov[which(ests$DailyMethod=="Hier Run-timing Mod"), which(ests$DailyMethod=="Hier Run-timing Mod")] <-
+    vcov_hierinterp[which(ests$DailyMethod=="Hier Run-timing Mod"), which(ests$DailyMethod=="Hier Run-timing Mod")]
   
-  tots_vcov[ests$DailyMethod[dd]=="Sonar", ests$DailyMethod[dd]=="Sonar"] <-
-    vcov_mixture[ests$DailyMethod[dd]=="Sonar", ests$DailyMethod[dd]=="Sonar"]
+  tots_vcov[which(ests$DailyMethod=="Sonar"), which(ests$DailyMethod=="Sonar")] <-
+    vcov_mixture[which(ests$DailyMethod=="Sonar"), which(ests$DailyMethod=="Sonar")]
   
+  rownames(tots_vcov) <- colnames(tots_vcov) <-  rownames(ests)
   return(tots_vcov)
 }
 Cchin_vcov <- make_vcov(ests=Cchin_final, vcov_hierinterp=Cchin_vcov_hierinterp)
@@ -1443,14 +1469,16 @@ tots1$SE
 tots2$SE
 tots3$SE
 
+Cwhich <- which(as.Date(rownames(Cchin_vcov)) >= as.Date(from) & as.Date(rownames(Cchin_vcov)) <= as.Date(to))
+Swhich <- which(as.Date(rownames(Schin_vcov)) >= as.Date(from) & as.Date(rownames(Schin_vcov)) <= as.Date(to))
 tots4 <- tots3
-tots4$SE <- c(sqrt(sum(Cchin_vcov)),
-sqrt(sum(Cchum_vcov)),
-sqrt(sum(Schin_vcov)),
-sqrt(sum(Schum_vcov)))
+tots4$SE <- c(sqrt(sum(Cchin_vcov[Cwhich, Cwhich])),
+              sqrt(sum(Cchum_vcov[Cwhich, Cwhich])),
+              sqrt(sum(Schin_vcov[Swhich, Swhich])),
+              sqrt(sum(Schum_vcov[Swhich, Swhich])))
 
+tots4$SE
 tots4
-
 
 # library(xlsx)
 # write.xlsx(tots1, file="ChenaSalcha2018_summary.xlsx", sheetName="SummaryTotals")
