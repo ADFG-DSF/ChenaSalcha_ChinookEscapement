@@ -1,0 +1,538 @@
+library(tidyverse)
+
+##################
+#
+#  2. Length priors 
+#
+###################
+
+## Carcass data .csv file has been appended each year
+
+lengthdata_raw <- read.csv("2025/flat_data/AllCarcassData_upto2025.csv",
+                           header=T, stringsAsFactors = FALSE)
+summary(lengthdata_raw)
+table(lengthdata_raw$Sex)
+
+## Bunch o data fixes, mostly inherited from prior years
+lengthdata <- lengthdata_raw %>%
+  mutate(Sex = ifelse(!Sex %in% c("male", "female"), NA, Sex)) %>%
+  mutate(Length = as.numeric(Length)) %>%
+  filter(Length >= 200)
+summary(lengthdata)  
+
+
+# not yet sure if this is needed
+lengthdata$sexfac <- as.numeric(as.factor(lengthdata$Sex))
+lengthdata$yearfac <- as.numeric(as.factor(lengthdata$year))
+lengthdata$riverfac <- as.numeric(as.factor(lengthdata$river))
+lengthdata$speciesfac <- as.numeric(as.factor(lengthdata$species))
+
+
+
+## Setting up for hierarchical model below
+
+lengthdata$cat <- NA
+lengthdata$cat[lengthdata$river=="Chena" & lengthdata$species=="Chinook" & lengthdata$Sex=="male"] <- 1
+lengthdata$cat[lengthdata$river=="Chena" & lengthdata$species=="Chinook" & lengthdata$Sex=="female"] <- 2
+lengthdata$cat[lengthdata$river=="Chena" & lengthdata$species=="Chum" & lengthdata$Sex=="male"] <- 3
+lengthdata$cat[lengthdata$river=="Chena" & lengthdata$species=="Chum" & lengthdata$Sex=="female"] <- 4
+lengthdata$cat[lengthdata$river=="Salcha" & lengthdata$species=="Chinook" & lengthdata$Sex=="male"] <- 5
+lengthdata$cat[lengthdata$river=="Salcha" & lengthdata$species=="Chinook" & lengthdata$Sex=="female"] <- 6
+lengthdata$cat[lengthdata$river=="Salcha" & lengthdata$species=="Chum" & lengthdata$Sex=="male"] <- 7
+lengthdata$cat[lengthdata$river=="Salcha" & lengthdata$species=="Chum" & lengthdata$Sex=="female"] <- 8
+summary(lengthdata)
+head(lengthdata)
+
+lengthdata <- subset(lengthdata, !is.na(cat) & !is.na(year) & !is.na(Length))
+summary(lengthdata)
+head(lengthdata)
+
+carcassyrs <- sort(unique(lengthdata$year))
+
+
+
+## plotting the distribution of each years' carcass lengths
+
+par(mfrow=c(2,1))
+for(riv in c("Chena","Salcha")) {
+  for(spec in c("Chinook","Chum")) {
+    for(sexx in c("male","female")) {
+      asdf <- subset(lengthdata, river==riv & species==spec & Sex==sexx)
+      boxplot(asdf$Length ~ asdf$year, main=paste(riv,spec,sexx), ylim=range(lengthdata$Length,na.rm=T), ylab="length (mm)",las=3) # xaxt='n',
+      # axis(1,labels=sort(unique(asdf$year)),at=1:length(unique(asdf$year)))
+      grid(nx=0,ny=NULL)
+    }
+  }
+}
+
+
+
+## Hierarchical model to estimate mean, sd, and se of carcass lengths for each category.
+## Output from this model will be used as priors for the big sonar mixture model!
+
+library(jagsUI)
+library(jagshelper)
+ncores <- 10#6  # number of cores for parallel chains.  I use 10 on the big desktop, 6 for laptop
+
+# specify model, which is written to a temporary file
+length_jags <- tempfile()
+cat('model {
+  for (i in 1:N) {
+    y[i] ~ dnorm(mu[cat[i],year[i]], tau[cat[i]])
+    # ypp[i] ~ dnorm(mu[cat[i],year[i]], tau[cat[i]])
+  }
+  for(j in 1:Ncat) {
+    for(k in 1:Nyear) {
+      mu[j,k] ~ dnorm(mumu[j], taumu[j])
+    }
+    mumu[j] ~ dnorm(500,0.0001)
+    sigmu[j] ~ dunif(0,100)
+    taumu[j] <- pow(sigmu[j], -2)
+    tau[j] <- pow(sigma[j], -2)
+    sigma[j] ~ dunif(0,500)
+  }
+catmean[1:Ncat] <- mu[1:Ncat,Nyear]
+
+}', file=length_jags)
+
+
+niter <- 2*1000  
+# niter <- 50*1000   
+# 2k takes 1.3 minutes, 10k takes 5 min (12min with ypp)   - 10k is probably enough
+# 50k took 35 minutes previously
+
+{
+  tstart <- Sys.time()
+  print(tstart)
+  length_data_jags <- list(y=lengthdata$Length, year=lengthdata$yearfac, cat=lengthdata$cat,
+                           N=nrow(lengthdata), Ncat=max(lengthdata$cat), Nyear= max(lengthdata$yearfac))
+  length_jags_out <- jagsUI::jags(model.file=length_jags, data=length_data_jags,
+                                  parameters.to.save=c("mu","mumu","sigmu","sigma","catmean","ypp"), 
+                                  n.chains=ncores, parallel=T, n.iter=niter, n.burnin=niter/2, n.thin=niter/2000)
+  Sys.time()-tstart
+}
+nbyname(length_jags_out)
+plotRhats(length_jags_out)
+traceworstRhat(length_jags_out, parmfrow = c(3, 3))
+
+# par(mfcol = c(3,3))
+# plot_postpred(length_jags_out, y=lengthdata$Length, p="ypp")
+# par(mfrow=c(1,1))
+# qq_postpred(length_jags_out, y=lengthdata$Length, p="ypp")
+
+
+# 
+prior_mn <- length_jags_out$mean$catmean
+prior_se <- length_jags_out$sd$catmean
+prior_sd_mn <- length_jags_out$mean$sigma
+prior_sd_sd <- length_jags_out$sd$sigma
+# 
+mu_mn <- length_jags_out$mean$mu
+mu_sd <- length_jags_out$sd$mu
+
+
+
+## overlaying model output on top of carcass length data.
+##  - horizontal lines: point estimates for means
+##  - heavy blue bars (not visible in many cases): +/- SE for means
+##  - light blue bars: +/- SD for observations
+
+cat <- 0
+par(mfrow=c(2,2))
+for(riv in c("Chena","Salcha")) {
+  for(spec in c("Chinook","Chum")) {
+    for(sexx in c("male","female")) {
+      cat <- cat+1
+      asdf <- subset(lengthdata, river==riv & species==spec & Sex==sexx)
+      boxplot(asdf$Length ~ asdf$year, main=paste(riv,spec,sexx), ylim=range(lengthdata$Length,na.rm=T), ylab="length (mm)",las=3,border="grey80") # xaxt='n',
+      grid(nx=0,ny=NULL)
+      
+      whichyrs <- sort(unique(asdf$yearfac))
+      mn <- mu_mn[cat,whichyrs]
+      selo <- mn-mu_sd[cat,whichyrs]
+      sehi <- mn+mu_sd[cat,whichyrs]
+      siglo <- mn-prior_sd_mn[cat]
+      sighi <- mn+prior_sd_mn[cat]
+      # points(mn,pch="-",col=4)
+      segments((1:length(mn))-.3, mn, (1:length(mn))+.3, mn, lwd=2,col=4,lend=1)
+      segments(1:length(mn),selo,1:length(mn),sehi,lwd=5,lend=1,col=4)
+      segments(1:length(mn),siglo,1:length(mn),sighi,lwd=2,col=4)
+    }
+  }
+}
+
+par(mfrow=c(1,1))
+subset(lengthdata, year==2024) %>% 
+  boxplot(Length ~ factor(cat, levels=1:8), data=., col="grey90", border="grey")
+subset(lengthdata, year==2024) %>% 
+  points(Length ~ jitter(cat), data=.)
+caterpillar(length_jags_out, "catmean", add=TRUE, lwd=2)
+
+
+
+
+
+
+
+
+########################################
+#
+#  3.  differential run-timing priors 
+#
+########################################
+
+## The sonar species apportionment model will use priors for species that are weakly informed by a 
+## logistic curve.  Since the chum run has always been observed to be slightly later than the king
+## run, the daily king proportion follows a very nearly logistic curve, visible in each year's 
+## visual count data.
+
+## To estimate these parameters, a hierarchical logistic regression model has been used, using the
+## non-expanded visual counts for each day as input data.  Regression coefficients are treated as 
+## hierarchically distributed.  Since the timing of the chum and king runs for the Chena and Salcha
+## rivers tend to be similar each year, the coefficient pairs (intercepts for both rivers, slopes
+## for both rivers) are assumed to be MVN, allowing the inclusion of a correlation parameter.
+## If one river's sonar season is compromised, this allows the borrowing of information from the
+## other river.
+
+## So far, I've only used years in which data exist for both rivers.  I realize now this may not 
+## be necessary (having just run the model without 2019 data for the Salcha!)
+
+
+## Run timing data .csv file has been appended each year from visual tower counts (non-expanded)
+Chena_runtiming <- read.csv(file="2025/flat_data/Chena_historic_2025.csv")
+
+Chena_runtiming$date205 <- Chena_runtiming$julian - 205             # approximately centering date
+# Chena_mat <- cbind(Chena_runtiming$chinook,Chena_runtiming$chum)
+# Chena_mat[Chena_mat<0] <- 0
+Chena_runtiming$chinook[Chena_runtiming$chinook<0] <- 0
+Chena_runtiming$chum[Chena_runtiming$chum<0] <- 0
+
+
+Salcha_runtiming <- read.csv(file="2025/flat_data/Salcha_historic_2025.csv")
+Salcha_runtiming$date205 <- Salcha_runtiming$julian - 205
+# Salcha_mat <- cbind(Salcha_runtiming$chinook,Salcha_runtiming$chum)
+# Salcha_mat[Salcha_mat<0] <- 0
+Salcha_runtiming$chinook[Salcha_runtiming$chinook<0] <- 0
+Salcha_runtiming$chum[Salcha_runtiming$chum<0] <- 0
+
+## only including years that have data for both rivers
+yearsboth <- intersect(unique(Chena_runtiming$year),unique(Salcha_runtiming$year))
+Chena_sub <- subset(Chena_runtiming,year %in% yearsboth)
+Salcha_sub <- subset(Salcha_runtiming,year %in% yearsboth)
+
+## only including dates with nonzero counts
+Chena_sub <- Chena_sub[rowSums(Chena_sub[,2:3])>0,]
+Salcha_sub <- Salcha_sub[rowSums(Salcha_sub[,2:3])>0,]
+
+### if we wanted to mess with effective sample size, here's a place we could do it
+# Chena_sub[,2:3] <- round(Chena_sub[,2:3]/6)
+# Salcha_sub[,2:3] <- round(Salcha_sub[,2:3]/6)
+
+# specify model, which is written to a temporary file
+CS_jags <- tempfile()
+cat('model {
+  for(i in 1:Cn) {
+    logit(Cpi[i]) <- a0[Cyear[i],1] + a1[Cyear[i],1]*Cday[i]
+    Cchin[i] ~ dbin(Cpi[i],Ctot[i])
+  }
+  for(i in 1:Sn) {
+    logit(Spi[i]) <- a0[Syear[i],2] + a1[Syear[i],2]*Sday[i]
+    Schin[i] ~ dbin(Spi[i],Stot[i])
+  }
+    
+  for(i in 1:nyear) {
+    a0[i,1:2] ~ dmnorm(b0[],tau0[,])
+    a1[i,1:2] ~ dmnorm(b1[],tau1[,])
+  }
+
+    
+  tau0[1:2,1:2] <- inverse(Sigma0[,])
+  tau1[1:2,1:2] <- inverse(Sigma1[,])
+    
+  Sigma0[1,1] <- pow(sig01,2)
+  Sigma0[2,2] <- pow(sig02,2)
+  Sigma0[1,2] <- rho0*sig01*sig02
+  Sigma0[2,1] <- Sigma0[1,2]
+  sig01 ~ dunif(0,10)   # was 1000
+  sig02 ~ dunif(0,10)   # was 1000
+  rho0 ~ dunif(-1,1)
+    
+  Sigma1[1,1] <- pow(sig11,2)
+  Sigma1[2,2] <- pow(sig12,2)
+  Sigma1[1,2] <- rho1*sig11*sig12
+  Sigma1[2,1] <- Sigma1[1,2]
+  sig11 ~ dunif(0,10)
+  sig12 ~ dunif(0,10)
+  rho1 ~ dunif(-1,1)
+    
+  b0[1] ~ dnorm(0,0.001)
+  b1[1] ~ dnorm(0,0.001)
+  b0[2] ~ dnorm(0,0.001)
+  b1[2] ~ dnorm(0,0.001)
+}', file=CS_jags)
+
+
+CS_data <- list(Stot=Salcha_sub$chinook+Salcha_sub$chum,Schin=Salcha_sub$chin,Sday=Salcha_sub$date205,Syear=as.numeric(as.factor(Salcha_sub$year)),
+                Ctot=Chena_sub$chinook+Chena_sub$chum,Cchin=Chena_sub$chin,Cday=Chena_sub$date205,Cyear=as.numeric(as.factor(Chena_sub$year)),
+                nyear=length(unique(Salcha_sub$year)),Sn=nrow(Salcha_sub),Cn=nrow(Chena_sub))
+
+
+niter <- 50*1000 
+# niter <- 500*1000    
+# 10k in 30 sec, 50k in 2.5 min, 100k in 5 min   - 100k was sufficient
+
+ncores <- 10#6
+
+
+{
+  tstart <- Sys.time()
+  print(tstart)
+  CS_jags_out <- jagsUI::jags(model.file=CS_jags,data=CS_data, parameters.to.save=c("b0","b1","a0","a1","rho0","rho1"),
+                              n.chains=ncores, parallel=T, n.iter=niter, n.thin=niter/2000, n.burnin=niter/2)
+  Sys.time()-tstart
+}
+
+nbyname(CS_jags_out)
+plotRhats(CS_jags_out)
+traceworstRhat(CS_jags_out, parmfrow = c(3, 3))
+
+
+## running the model again, taking out the 2019 and 2024 Salcha data
+
+CS_data_alt <- CS_data
+CS_data_alt$Schin[Salcha_sub$year %in% c(2019, 2024)] <- NA
+{
+  tstart <- Sys.time()
+  print(tstart)
+  CS_jags_out_alt <- jagsUI::jags(model.file=CS_jags,data=CS_data_alt, parameters.to.save=c("b0","b1","a0","a1","rho0","rho1"),
+                                  n.chains=ncores, parallel=T, n.iter=niter, n.thin=niter/2000, n.burnin=niter/2)
+  Sys.time()-tstart
+}
+
+nbyname(CS_jags_out_alt)
+plotRhats(CS_jags_out_alt)
+traceworstRhat(CS_jags_out_alt, parmfrow = c(3, 3))
+
+
+## saving point estimates for regression parameters
+
+a0 <- CS_jags_out$mean$a0
+a1 <- CS_jags_out$mean$a1
+b0 <- CS_jags_out$mean$b0
+b1 <- CS_jags_out$mean$b1
+a0_prec <- CS_jags_out$sd$a0^(-2)
+a1_prec <- CS_jags_out$sd$a1^(-2)
+b0_prec <- CS_jags_out$sd$b0^(-2)
+b1_prec <- CS_jags_out$sd$b1^(-2)
+
+a0_alt <- CS_jags_out_alt$mean$a0
+a1_alt <- CS_jags_out_alt$mean$a1
+b0_alt <- CS_jags_out_alt$mean$b0
+b1_alt <- CS_jags_out_alt$mean$b1
+a0_prec_alt <- CS_jags_out_alt$sd$a0^(-2)
+a1_prec_alt <- CS_jags_out_alt$sd$a1^(-2)
+b0_prec_alt <- CS_jags_out_alt$sd$b0^(-2)
+b1_prec_alt <- CS_jags_out_alt$sd$b1^(-2)
+
+# save(CS_jags_out, length.jags.out, lengthdata, file="priorouts.Rdata")
+
+
+
+
+
+
+## Plotting!
+
+# library(MTfuncs)
+# expit <- function(x)  exp(x)/(1+exp(x))
+
+# all data version - Chena
+par(mfrow=c(3,4))
+for(i in 1:length(yearsboth)) {
+  asdf <- subset(Chena_sub, year==yearsboth[i])
+  glm1 <- glm(as.matrix(asdf[,2:3])~asdf$date205,family="binomial")
+  ayr <- as.numeric(glm1$coefficients)
+  plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Chena",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
+  curve(expit(ayr[1]+ayr[2]*x),add=T)
+  curve(expit(a0[i,1]+a1[i,1]*x),add=T,col=4,lty=2,lwd=2)
+  curve(expit(b0[1]+b1[1]*x),add=T,lty=3,col=2)
+}
+plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
+legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+
+# alt version - Chena
+par(mfrow=c(3,4))
+for(i in 1:length(yearsboth)) {
+  asdf <- subset(Chena_sub, year==yearsboth[i])
+  glm1 <- glm(as.matrix(asdf[,2:3])~asdf$date205,family="binomial")
+  ayr <- as.numeric(glm1$coefficients)
+  plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Chena",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
+  curve(expit(ayr[1]+ayr[2]*x),add=T)
+  curve(expit(a0_alt[i,1]+a1_alt[i,1]*x),add=T,col=4,lty=2,lwd=2)
+  curve(expit(b0_alt[1]+b1_alt[1]*x),add=T,lty=3,col=2)
+}
+plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
+legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+
+
+# ------------------
+
+# all data version - Salcha
+par(mfrow=c(3,4))
+for(i in 1:length(yearsboth)) {
+  asdf <- subset(Salcha_sub, year==yearsboth[i])
+  glm1 <- glm(as.matrix(asdf[,2:3])~asdf$date205,family="binomial")
+  ayr <- as.numeric(glm1$coefficients)
+  plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Salcha",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
+  curve(expit(ayr[1]+ayr[2]*x),add=T)
+  curve(expit(a0[i,2]+a1[i,2]*x),add=T,col=4,lty=2,lwd=2)
+  curve(expit(b0[2]+b1[2]*x),add=T,lty=3,col=2)
+}
+plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
+legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+
+# alt version - Salcha
+par(mfrow=c(3,4))
+for(i in 1:length(yearsboth)) {
+  asdf <- subset(Salcha_sub, year==yearsboth[i])
+  glm1 <- glm(as.matrix(asdf[,2:3])~asdf$date205,family="binomial")
+  ayr <- as.numeric(glm1$coefficients)
+  plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Salcha",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
+  curve(expit(ayr[1]+ayr[2]*x),add=T)
+  curve(expit(a0_alt[i,2]+a1_alt[i,2]*x),add=T,col=4,lty=2,lwd=2)
+  curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=3,col=2)
+}
+plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
+legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+
+
+# ------------------
+
+# all data version - BOTH
+
+par(mfrow=c(3,2))
+
+for(i in length(yearsboth)) {
+  asdf <- subset(Chena_sub, year==yearsboth[i])
+  glm1 <- glm(as.matrix(asdf[,2:3])~asdf$date205,family="binomial")
+  ayr <- as.numeric(glm1$coefficients)
+  plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Chena",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
+  curve(expit(ayr[1]+ayr[2]*x),add=T)
+  curve(expit(a0[i,1]+a1[i,1]*x),add=T,col=4,lty=2,lwd=2)
+  curve(expit(b0[1]+b1[1]*x),add=T,lty=3,col=2)
+}
+# plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
+legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+
+for(i in length(yearsboth)) {
+  asdf <- subset(Salcha_sub, year==yearsboth[i])
+  glm1 <- glm(as.matrix(asdf[,2:3])~asdf$date205,family="binomial")
+  ayr <- as.numeric(glm1$coefficients)
+  plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Salcha",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
+  curve(expit(ayr[1]+ayr[2]*x),add=T)
+  curve(expit(a0[i,2]+a1[i,2]*x),add=T,col=4,lty=2,lwd=2)
+  curve(expit(b0[2]+b1[2]*x),add=T,lty=3,col=2)
+}
+# plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
+legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+
+
+plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Chena")
+for(i in 1:length(yearsboth)) {
+  curve(expit(a0[i,1]+a1[i,1]*x),add=T)
+}
+curve(expit(b0[1]+b1[1]*x),add=T,lty=2,lwd=3)
+curve(expit(a0[length(yearsboth),1]+a1[length(yearsboth),1]*x),add=T,lwd=3)
+legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=c(1,3,3),lty=c(1,2,1))
+
+plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Salcha")
+for(i in 1:length(yearsboth)) {
+  curve(expit(a0[i,2]+a1[i,2]*x),add=T)
+}
+curve(expit(b0[2]+b1[2]*x),add=T,lty=2,lwd=3)
+curve(expit(a0[length(yearsboth),2]+a1[length(yearsboth),2]*x),add=T,lwd=3)
+legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=c(1,3,3),lty=c(1,2,1))
+
+
+xx <- min(Chena_sub$date205, na.rm=TRUE):max(Chena_sub$date205, na.rm=TRUE)
+a0p <- CS_jags_out$sims.list$a0[,length(yearsboth),]
+a1p <- CS_jags_out$sims.list$a1[,length(yearsboth),]
+
+predp <- expit(a0p[,1] + outer(a1p[,1], xx))
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Chena", ylim=0:1)
+asdf <- subset(Chena_sub, year==yearsboth[length(yearsboth)])
+points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
+     labels=(asdf$chinook+asdf$chum), pos=4)
+
+predp <- expit(a0p[,2] + outer(a1p[,2], xx))
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha", ylim=0:1)
+asdf <- subset(Salcha_sub, year==yearsboth[length(yearsboth)])
+points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
+     labels=(asdf$chinook+asdf$chum), pos=4)
+
+
+# alt data version - BOTH 
+
+par(mfrow=c(3,2))
+
+for(i in length(yearsboth)) {
+  asdf <- subset(Chena_sub, year==yearsboth[i])
+  glm1 <- glm(as.matrix(asdf[,2:3])~asdf$date205,family="binomial")
+  ayr <- as.numeric(glm1$coefficients)
+  plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Chena",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
+  curve(expit(ayr[1]+ayr[2]*x),add=T)
+  curve(expit(a0_alt[i,1]+a1_alt[i,1]*x),add=T,col=4,lty=2,lwd=2)
+  curve(expit(b0_alt[1]+b1_alt[1]*x),add=T,lty=3,col=2)
+}
+# plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
+legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+
+for(i in length(yearsboth)) {
+  asdf <- subset(Salcha_sub, year==yearsboth[i])
+  glm1 <- glm(as.matrix(asdf[,2:3])~asdf$date205,family="binomial")
+  ayr <- as.numeric(glm1$coefficients)
+  plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Salcha",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
+  curve(expit(ayr[1]+ayr[2]*x),add=T)
+  curve(expit(a0_alt[i,2]+a1_alt[i,2]*x),add=T,col=4,lty=2,lwd=2)
+  curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=3,col=2)
+}
+# plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
+legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
+
+
+plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Chena")
+for(i in 1:length(yearsboth)) {
+  curve(expit(a0_alt[i,1]+a1_alt[i,1]*x),add=T)
+}
+curve(expit(b0_alt[1]+b1_alt[1]*x),add=T,lty=2,lwd=3)
+curve(expit(a0_alt[length(yearsboth),1]+a1_alt[length(yearsboth),1]*x),add=T,lwd=3)
+legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=c(1,3,3),lty=c(1,2,1))
+
+plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Salcha")
+for(i in 1:length(yearsboth)) {
+  curve(expit(a0_alt[i,2]+a1_alt[i,2]*x),add=T)
+}
+curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=2,lwd=3)
+curve(expit(a0_alt[length(yearsboth),2]+a1_alt[length(yearsboth),2]*x),add=T,lwd=3)
+legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=c(1,3,3),lty=c(1,2,1))
+
+
+xx <- min(Chena_sub$date205, na.rm=TRUE):max(Chena_sub$date205, na.rm=TRUE)
+a0p <- CS_jags_out_alt$sims.list$a0[,length(yearsboth),]
+a1p <- CS_jags_out_alt$sims.list$a1[,length(yearsboth),]
+
+predp <- expit(a0p[,1] + outer(a1p[,1], xx))
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Chena", ylim=0:1)
+asdf <- subset(Chena_sub, year==yearsboth[length(yearsboth)])
+points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
+     labels=(asdf$chinook+asdf$chum), pos=4)
+
+predp <- expit(a0p[,2] + outer(a1p[,2], xx))
+envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha", ylim=0:1)
+asdf <- subset(Salcha_sub, year==yearsboth[length(yearsboth)])
+points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
+text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
+     labels=(asdf$chinook+asdf$chum), pos=4)

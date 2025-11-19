@@ -51,3 +51,5 @@ rsconnect/
 # project specific
 */addl_data
 */posts
+*.xlsx
+
