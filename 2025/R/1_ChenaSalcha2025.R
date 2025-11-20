@@ -381,6 +381,7 @@ for(riv in c("Chena","Salcha")) {
 library(jagsUI)
 library(jagshelper)
 ncores <- 10#6  # number of cores for parallel chains.  I use 10 on the big desktop, 6 for laptop
+# ncores <- 6
 
 # specify model, which is written to a temporary file
 length_jags <- tempfile()
@@ -404,7 +405,8 @@ catmean[1:Ncat] <- mu[1:Ncat,Nyear]
 }', file=length_jags)
 
 
-niter <- 2*1000  
+# niter <- 2*1000 
+niter <- 10*1000  # 6 min 
 # niter <- 50*1000   
 # 2k takes 1.3 minutes, 10k takes 5 min (12min with ypp)   - 10k is probably enough
 # 50k took 35 minutes previously
@@ -470,9 +472,9 @@ for(riv in c("Chena","Salcha")) {
 }
 
 par(mfrow=c(1,1))
-subset(lengthdata, year==2024) %>% 
+subset(lengthdata, year==2025) %>% 
   boxplot(Length ~ factor(cat, levels=1:8), data=., col="grey90", border="grey")
-subset(lengthdata, year==2024) %>% 
+subset(lengthdata, year==2025) %>% 
   points(Length ~ jitter(cat), data=.)
 caterpillar(length_jags_out, "catmean", add=TRUE, lwd=2)
 
@@ -585,11 +587,12 @@ CS_data <- list(Stot=Salcha_sub$chinook+Salcha_sub$chum,Schin=Salcha_sub$chin,Sd
                 nyear=length(unique(Salcha_sub$year)),Sn=nrow(Salcha_sub),Cn=nrow(Chena_sub))
 
 
-niter <- 50*1000 
-# niter <- 500*1000    
+# niter <- 50*1000 
+niter <- 100*1000  # 9 min
 # 10k in 30 sec, 50k in 2.5 min, 100k in 5 min   - 100k was sufficient
 
-ncores <- 10#6
+# ncores <- 10#6
+ncores <- 6
 
 
 {
