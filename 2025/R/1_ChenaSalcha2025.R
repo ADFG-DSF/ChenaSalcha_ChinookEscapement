@@ -406,8 +406,8 @@ catmean[1:Ncat] <- mu[1:Ncat,Nyear]
 
 
 # niter <- 2*1000 
-niter <- 10*1000  # 6 min 
-# niter <- 50*1000   
+# niter <- 10*1000  # 6 min (17 with ypp)
+niter <- 50*1000
 # 2k takes 1.3 minutes, 10k takes 5 min (12min with ypp)   - 10k is probably enough
 # 50k took 35 minutes previously
 
@@ -425,10 +425,11 @@ nbyname(length_jags_out)
 plotRhats(length_jags_out)
 traceworstRhat(length_jags_out, parmfrow = c(3, 3))
 
+## time-consuming and not super helpful
 # par(mfcol = c(3,3))
 # plot_postpred(length_jags_out, y=lengthdata$Length, p="ypp")
 # par(mfrow=c(1,1))
-# qq_postpred(length_jags_out, y=lengthdata$Length, p="ypp")
+# qq_postpred(length_jags_out, y=lengthdata$Length, p="ypp")   # actually best i've ever seen
 
 
 # 
@@ -588,11 +589,12 @@ CS_data <- list(Stot=Salcha_sub$chinook+Salcha_sub$chum,Schin=Salcha_sub$chin,Sd
 
 
 # niter <- 50*1000 
-niter <- 100*1000  # 9 min
+# niter <- 100*1000  # 9 min
+niter <- 200*1000  # 9 min
 # 10k in 30 sec, 50k in 2.5 min, 100k in 5 min   - 100k was sufficient
 
-# ncores <- 10#6
-ncores <- 6
+ncores <- 10
+# ncores <- 6
 
 
 {
@@ -848,7 +850,7 @@ points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
 text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
      labels=(asdf$chinook+asdf$chum), pos=4)
 
-
+save_output
 if(save_output) {
   save(a0, a1, a0_alt, a1_alt,
        a0_prec, a1_prec, a0_prec_alt, a1_prec_alt,

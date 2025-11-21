@@ -273,12 +273,13 @@ cat('model {
 
 ## actually running the thing!!
 
-niter <- 100*1000   # 20 min
+niter <- 200*1000   
+# niter <- 100*1000   # 20 min
 # niter <- 20*1000    # 4 min
 # 50k now takes 7 min
 
-# ncores <- 10
-ncores <- 6
+ncores <- 10
+# ncores <- 6
 
 {
   t.start <- Sys.time()
@@ -381,58 +382,257 @@ ggplot(all_fish,
 
 
 
-library(akima)
-par(mfrow=c(1,1))
-filled.contour(akima::interp(all_fish$date, all_fish$length, all_fish$modspec, 
-                             duplicate="median"),
-               color.palette = heat.colors)
-filled.contour(akima::interp(all_fish$date, all_fish$length, all_fish$modspec_alt, 
-                             duplicate="median"),
-               color.palette = heat.colors)
 
-contour(akima::interp(all_fish$date, all_fish$length, all_fish$modspec, 
-                      duplicate="median"))
-points(jitter(as.numeric(all_fish$date)), all_fish$length, col=adjustcolor(1, alpha.f=.2))
+## comparison to the nonreviewed sonar data
 
-contour(akima::interp(all_fish$date, all_fish$length, all_fish$modspec_alt, 
-                      duplicate="median"))
-points(jitter(as.numeric(all_fish$date)), all_fish$length, col=adjustcolor(1, alpha.f=.2))
+load(file="2025/Rdata/sonardata2025_nonreviewed.Rdata")
 
+## recentering(ish) the dates
 
+days1.205_nonreviewed <- all_fish_nonreviewed$date - as.numeric(as.Date("2024-12-31",format="%Y-%m-%d")) - 205
+days1.205_nonreviewed <- as.numeric(days1.205_nonreviewed)
 
-niter <- 10*1000 # was 50k
 {
-  kfold_base <- kfold(model.file=CSmix_jags, data=CSmix_data,
-                      p="L.mm.D",
-                      k=5,
-                      n.chains=ncores, parallel = T, n.iter=niter, n.burnin=niter/2, n.thin=niter/2000, n.adapt=niter/10)
+  CSmix_data <- list(n.fish=nrow(all_fish_nonreviewed),
+                     alpha.sex.chin=c(5,5),
+                     alpha.sex.chum=c(5,5),
+                     day=days1.205_nonreviewed,
+                     L.mm.D=all_fish_nonreviewed$length,
+                     # L.mm.D=all_fish_nonreviewed$length - mean(all_fish_nonreviewed$length),
+                     DL.star=dl,
+                     AL.star=al - mean(all_fish_nonreviewed$length),
+                     m=length(dl),
+                     sonar=as.numeric(factor(all_fish_nonreviewed$sonartype,
+                                             levels=c("ARIS","DIDSON"))),
+                     river=as.numeric(factor(all_fish_nonreviewed$river,
+                                             levels=c("Chena","Salcha"))))
   
-  kfold_alt <- kfold(model.file=CSmix_jags, data=CSmix_data_alt,
-                     p="L.mm.D",
-                     k=5,
-                     n.chains=ncores, parallel = T, n.iter=niter, n.burnin=niter/2, n.thin=niter/2000, n.adapt=niter/10)
+  
+  
+  
+  
+  
+  ## adding prior values to the input bundle
+  
+  CSmix_data$chena_chin_m_mn <- prior_mn[1] # 630.6527 # 628.9737
+  CSmix_data$chena_chin_f_mn <- prior_mn[2] # 772.8799 # 770.6395
+  CSmix_data$chena_chum_m_mn <- prior_mn[3] # 577.0627 # 576.696
+  CSmix_data$chena_chum_f_mn <- prior_mn[4] # 536.9237 # 536.3548
+  CSmix_data$salcha_chin_m_mn <- prior_mn[5] # 633.8789 # 630.8786
+  CSmix_data$salcha_chin_f_mn <- prior_mn[6] # 748.5821 # 746.3704
+  CSmix_data$salcha_chum_m_mn <- prior_mn[7] # 582.6091 # 581.6707
+  CSmix_data$salcha_chum_f_mn <- prior_mn[8] # 553.7088 # 553.427
+  CSmix_data$chena_chin_m_sd_mn <- prior_sd_mn[1] # 125.3323 # 125.2858
+  CSmix_data$chena_chin_f_sd_mn <- prior_sd_mn[2] # 62.50772 # 62.47632
+  CSmix_data$chena_chum_m_sd_mn <- prior_sd_mn[3] # 32.84721 # 32.79985
+  CSmix_data$chena_chum_f_sd_mn <- prior_sd_mn[4] # 28.85259 # 28.79817
+  CSmix_data$salcha_chin_m_sd_mn <- prior_sd_mn[5] # 140.101 # 140.0916
+  CSmix_data$salcha_chin_f_sd_mn <- prior_sd_mn[6] # 70.46991 # 70.47269
+  CSmix_data$salcha_chum_m_sd_mn <- prior_sd_mn[7] # 36.42222 # 36.39309
+  CSmix_data$salcha_chum_f_sd_mn <- prior_sd_mn[8] # 32.35963 # 32.34815
+  CSmix_data$chena_chin_m_se <- prior_se[1] # 7.28284 # 4.560142
+  CSmix_data$chena_chin_f_se <- prior_se[2] # 6.749164 # 7.089904
+  CSmix_data$chena_chum_m_se <- prior_se[3] # 2.927705 # 2.974368
+  CSmix_data$chena_chum_f_se <- prior_se[4] # 2.985835 # 3.109489
+  CSmix_data$salcha_chin_m_se <- prior_se[5] # 7.706633 # 4.569675
+  CSmix_data$salcha_chin_f_se <- prior_se[6] # 5.077828 # 6.689336
+  CSmix_data$salcha_chum_m_se <- prior_se[7] # 3.769341 # 3.454878
+  CSmix_data$salcha_chum_f_se <- prior_se[8] # 3.383679 # 2.76787
+  CSmix_data$chena_chin_m_sd_sd <- prior_sd_sd[1] # 0.8679354
+  CSmix_data$chena_chin_f_sd_sd <- prior_sd_sd[2] # 0.4953951
+  CSmix_data$chena_chum_m_sd_sd <- prior_sd_sd[3] # 0.8202903
+  CSmix_data$chena_chum_f_sd_sd <- prior_sd_sd[4] # 0.7246442
+  CSmix_data$salcha_chin_m_sd_sd <- prior_sd_sd[5] # 1.044187
+  CSmix_data$salcha_chin_f_sd_sd <- prior_sd_sd[6] # 0.6431075
+  CSmix_data$salcha_chum_m_sd_sd <- prior_sd_sd[7] # 0.6287916
+  CSmix_data$salcha_chum_f_sd_sd <- prior_sd_sd[8] # 0.5613359
+  
+  
+  
+  # what kind of lengths do we expect??
+  # nsim <- 10000
+  # simdf <- matrix(NA, nrow=nsim, ncol=8)
+  # for(i in 1:8) {
+  #   mn <- rnorm(nsim, prior_mn[i], prior_se[i])
+  #   sd <- rnorm(nsim, prior_sd_mn[i], prior_sd_sd[i])
+  #   simdf[,i] <- rnorm(nsim, mn, sd)
+  # }
+  # boxplot(simdf)
+  # abline(h=500, lty=2)
+  # apply(simdf, 2, function(x) mean(x<500))
+  
+  
+  # ## measured length vs true length regression ests (don't think this is currently used)
+  # CSmix_data$betaD0_mn <- 44.81988
+  # CSmix_data$betaD1_mn <- 0.87156
+  # CSmix_data$betaD0_prec <- 63.36818^(-2)
+  # CSmix_data$betaD1_prec <- 0.07835^(-2)
+  
+  
+  
+  ## Recentering(ish) the length data!  This gets messy but helps convergence.
+  
+  mn_length <- mean(all_fish_nonreviewed$length)
+  
+  CSmix_data$chena_chin_m_mn <- CSmix_data$chena_chin_m_mn - mn_length
+  CSmix_data$chena_chin_f_mn <- CSmix_data$chena_chin_f_mn  - mn_length
+  CSmix_data$chena_chum_m_mn <- CSmix_data$chena_chum_m_mn  - mn_length
+  CSmix_data$chena_chum_f_mn <- CSmix_data$chena_chum_f_mn  - mn_length
+  CSmix_data$salcha_chin_m_mn <- CSmix_data$salcha_chin_m_mn  - mn_length
+  CSmix_data$salcha_chin_f_mn <- CSmix_data$salcha_chin_f_mn  - mn_length
+  CSmix_data$salcha_chum_m_mn <- CSmix_data$salcha_chum_m_mn  - mn_length
+  CSmix_data$salcha_chum_f_mn <- CSmix_data$salcha_chum_f_mn - mn_length
+  
+  
+  
+  ## updating the measured vs true length regression with centered lengths
+  
+  # summary(lm(dl~al))
+  al_c <- al - mn_length
+  c_mod <- lm(dl~al_c)
+  # summary(c_mod)
+  c_mod_coef <- summary(c_mod)$coefficients
+  
+  CSmix_data$betaD0_mn <- c_mod_coef[1,1] # 585.15589
+  CSmix_data$betaD1_mn <- c_mod_coef[2,1] # 0.87156
+  CSmix_data$betaD0_prec <- c_mod_coef[1,2]^(-2) # 18.83218
+  CSmix_data$betaD1_prec <- c_mod_coef[2,2]^(-2) # 0.07835
+  # CSmix_data$precL <- summary(c_mod)$sigma^(-2)
+  
+  
+  # differential run-timing priors
+  
+  CSmix_data$mu.b0 <- a0[nrow(a0),] 
+  CSmix_data$mu.b1 <- a1[nrow(a1),] 
+  CSmix_data$prec.b0 <- a0_prec[nrow(a0),] 
+  CSmix_data$prec.b1 <- a1_prec[nrow(a1),] 
+  
+  CSmix_data_alt <- CSmix_data
+  CSmix_data_alt$mu.b0 <- a0_alt[nrow(a0_alt),] 
+  CSmix_data_alt$mu.b1 <- a1_alt[nrow(a1_alt),] 
+  CSmix_data_alt$prec.b0 <- a0_prec_alt[nrow(a0_alt),] 
+  CSmix_data_alt$prec.b1 <- a1_prec_alt[nrow(a1_alt),] 
 }
-kfold_base$rmse_pred
-kfold_alt$rmse_pred
-kfold_base$mae_pred
-kfold_alt$mae_pred
 
-plot(kfold_base$data_y, kfold_base$pred_y)
-plot(kfold_alt$data_y, kfold_alt$pred_y)
-# this does not seem to work.  Maybe the function doesn't actually apply?
 
-plot(CSmix_data$L.mm.D, CSmix_jags_out$q50$ypp)
-abline(0,1)
-plot(CSmix_data$L.mm.D, CSmix_jags_out_alt$q50$ypp)
-abline(0,1)
-
-rmse <- function(x1, x2) {
-  sqrt(mean((x1-x2)^2, na.rm=TRUE))
+{
+  t.start <- Sys.time()
+  print(t.start)
+  CSmix_jags_out_nonreviewed <- jagsUI::jags(model.file=CSmix_jags,data=CSmix_data_alt, 
+                                     parameters.to.save=c("lambda","L.mm.act",
+                                                          "betaD0","betaD1",
+                                                          "sig.star",
+                                                          "species","sex",
+                                                          "ps", "psex",
+                                                          "b0","b1",
+                                                          "prec", "ypp"),
+                                     n.chains=ncores, parallel = T, n.iter=niter, n.burnin=niter/2, n.thin=niter/2000, n.adapt=niter/10) # inits=someinits, 
+  time <- Sys.time()-t.start
+  print(time)
 }
-mae <- function(x1, x2) {
-  mean(abs(x1-x2), na.rm=TRUE)
+
+par(mfrow=c(1,1))
+nbyname(CSmix_jags_out_nonreviewed)
+plotRhats(CSmix_jags_out_nonreviewed)
+traceworstRhat(CSmix_jags_out_nonreviewed, parmfrow = c(3,3))
+qq_postpred(CSmix_jags_out_nonreviewed, p="ypp", y=CSmix_data$L.mm.D)
+par(mfcol=c(3,2))
+plot_postpred(CSmix_jags_out_nonreviewed, p="ypp", y=CSmix_data$L.mm.D)
+par(mfrow=c(1,1))
+
+# df_2019_alt <- as.data.frame(as.matrix(CSmix_jags_out_nonreviewed$samples))
+# save(df_2019, df_2019_alt, file="df_2019.Rdata")
+
+
+##### saving output
+save_output
+if(save_output) {
+  # specmat <- CSmix_jags_out$sims.list$species
+  # modlength <- apply(CSmix_jags_out$sims.list$L.mm.act, 2, median) + mn_length
+  modlength_nonreviewed <- apply(CSmix_jags_out_nonreviewed$sims.list$L.mm.act, 2, median) + mn_length
+  specmat_nonreviewed <- CSmix_jags_out_nonreviewed$sims.list$species
+  save(specmat_nonreviewed, modlength_nonreviewed, 
+       file="2025/Rdata/mixmodel2025_nonreviewed.Rdata")
 }
-rmse(CSmix_data$L.mm.D, CSmix_jags_out$q50$ypp)
-rmse(CSmix_data$L.mm.D, CSmix_jags_out_alt$q50$ypp)
-mae(CSmix_data$L.mm.D, CSmix_jags_out$q50$ypp)
-mae(CSmix_data$L.mm.D, CSmix_jags_out_alt$q50$ypp)
+# modlength <- apply(pull_post(df_2019, "L.mm"), 2, median) + mean(all_fish$length)
+
+
+# CSmix_jags_out$DIC      
+# CSmix_jags_out_alt$DIC  
+# 
+# par(mfrow=c(2,2))
+# hist(rowSums(CSmix_jags_out$sims.list$species==1), xlim=c(0,1000))
+# hist(rowSums(CSmix_jags_out$sims.list$species==2), xlim=c(0,1000))
+# hist(rowSums(CSmix_jags_out_alt$sims.list$species==1), xlim=c(0,1000))
+# hist(rowSums(CSmix_jags_out_alt$sims.list$species==2), xlim=c(0,1000))
+# 
+# comparecat(list(CSmix_jags_out, CSmix_jags_out_alt), p="lambda")
+# comparecat(list(CSmix_jags_out, CSmix_jags_out_alt), p="betaD0[1]")
+# comparecat(list(CSmix_jags_out, CSmix_jags_out_alt), p="betaD1[1]")
+
+
+all_fish_nonreviewed$modspec <- CSmix_jags_out_nonreviewed$mean$species
+
+ggplot(all_fish_nonreviewed,
+       aes(x=date, y=length, colour=modspec)) +
+  geom_point() +
+  scale_colour_gradient(low="red", high="green")
+
+
+
+
+# library(akima)
+# par(mfrow=c(1,1))
+# filled.contour(akima::interp(all_fish$date, all_fish$length, all_fish$modspec, 
+#                              duplicate="median"),
+#                color.palette = heat.colors)
+# filled.contour(akima::interp(all_fish$date, all_fish$length, all_fish$modspec_alt, 
+#                              duplicate="median"),
+#                color.palette = heat.colors)
+# 
+# contour(akima::interp(all_fish$date, all_fish$length, all_fish$modspec, 
+#                       duplicate="median"))
+# points(jitter(as.numeric(all_fish$date)), all_fish$length, col=adjustcolor(1, alpha.f=.2))
+# 
+# contour(akima::interp(all_fish$date, all_fish$length, all_fish$modspec_alt, 
+#                       duplicate="median"))
+# points(jitter(as.numeric(all_fish$date)), all_fish$length, col=adjustcolor(1, alpha.f=.2))
+# 
+# 
+# 
+# niter <- 10*1000 # was 50k
+# {
+#   kfold_base <- kfold(model.file=CSmix_jags, data=CSmix_data,
+#                       p="L.mm.D",
+#                       k=5,
+#                       n.chains=ncores, parallel = T, n.iter=niter, n.burnin=niter/2, n.thin=niter/2000, n.adapt=niter/10)
+#   
+#   kfold_alt <- kfold(model.file=CSmix_jags, data=CSmix_data_alt,
+#                      p="L.mm.D",
+#                      k=5,
+#                      n.chains=ncores, parallel = T, n.iter=niter, n.burnin=niter/2, n.thin=niter/2000, n.adapt=niter/10)
+# }
+# kfold_base$rmse_pred
+# kfold_alt$rmse_pred
+# kfold_base$mae_pred
+# kfold_alt$mae_pred
+# 
+# plot(kfold_base$data_y, kfold_base$pred_y)
+# plot(kfold_alt$data_y, kfold_alt$pred_y)
+# # this does not seem to work.  Maybe the function doesn't actually apply?
+# 
+# plot(CSmix_data$L.mm.D, CSmix_jags_out$q50$ypp)
+# abline(0,1)
+# plot(CSmix_data$L.mm.D, CSmix_jags_out_alt$q50$ypp)
+# abline(0,1)
+# 
+# rmse <- function(x1, x2) {
+#   sqrt(mean((x1-x2)^2, na.rm=TRUE))
+# }
+# mae <- function(x1, x2) {
+#   mean(abs(x1-x2), na.rm=TRUE)
+# }
+# rmse(CSmix_data$L.mm.D, CSmix_jags_out$q50$ypp)
+# rmse(CSmix_data$L.mm.D, CSmix_jags_out_alt$q50$ypp)
+# mae(CSmix_data$L.mm.D, CSmix_jags_out$q50$ypp)
+# mae(CSmix_data$L.mm.D, CSmix_jags_out_alt$q50$ypp)

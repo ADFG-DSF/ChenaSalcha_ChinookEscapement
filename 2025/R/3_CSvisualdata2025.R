@@ -215,23 +215,20 @@ S_all_vis_long$clarity <- Salcha_2025_Clarity_vis_long$count
 
 
 
-# # investigating a possible tech effect for visual quality
-# # - note: this dataset is not publicly available
-# ################# uncomment this section when i port the data
-# tech24 <- read.csv("2024/addl_data/tech24.csv") %>%
-#   mutate(date=datesmasher(Date)) %>%
-#   select(-Date) %>%
-#   pivot_longer(c("X1","X2","X3"), names_to="shift", values_to = "tech") %>% 
-#   mutate(shift = as.numeric(substr(shift, 2, 2)))
-# head(tech24, 30)
-# 
-# S_all_vis_long$tech <- NA
-# for(i in 1:nrow(tech24)) {
-#   S_all_vis_long$tech[S_all_vis_long$date == tech24$date[i] & 
-#                         S_all_vis_long$shift == tech24$shift[i]] <- tech24$tech[i]
-# }
-# ################# uncomment this section when i port the data
+# investigating a possible tech effect for visual quality
+# - note: this dataset is not publicly available
+tech25 <- read.csv("2025/flat_data/tech25.csv") %>%
+  mutate(date=datesmasher(Date)) %>%
+  select(-Date) %>%
+  pivot_longer(c("X1","X2","X3"), names_to="shift", values_to = "tech") %>%
+  mutate(shift = as.numeric(substr(shift, 2, 2)))
+head(tech25, 30)
 
+C_all_vis_long$tech <- NA
+for(i in 1:nrow(tech25)) {
+  C_all_vis_long$tech[C_all_vis_long$date == tech25$date[i] &
+                        C_all_vis_long$shift == tech25$shift[i]] <- tech25$tech[i]
+}
 
 
 
@@ -343,19 +340,74 @@ sum(C_sonar_byblock_a2a)
 # sum(S_sonar_byblock_a2a)
 
 
+
+# load(file="2025/Rdata/sonardata2025_nonreviewed.Rdata")
+# 
+# CSouth_all_sonar <- subset(all_sonar_nonreviewed, station=="South")
+# CNorth_all_sonar <- subset(all_sonar_nonreviewed, station=="North")
+# C_all_sonar <- subset(all_sonar, river=="Chena")
+# C_blocks_both <- intersect(C_all_vis_long$block[!is.na(C_all_vis_long$count)],
+#                            intersect(CSouth_all_sonar$block, CNorth_all_sonar$block))
+# 
+# C_all_sonar_a2a <- subset(C_all_sonar, block %in% C_blocks_both)
+# 
+# C_all_vis_long_a2a <- subset(C_all_vis_long, block %in% C_blocks_both)
+# 
+# C_sonar_bydate_a2a <- table(C_all_sonar_a2a$date[C_all_sonar_a2a$length >= 400])
+# C_sonar_byblock_a2a <- table(as.factor(C_all_sonar_a2a$block)[C_all_sonar_a2a$length >= 400])
+# C_vis_bydate_a2a <- with(C_all_vis_long_a2a, tapply(count, as.character(date), sum))
+# 
+# 
+# 
+# ## Plotting:  First DAILY TOTALS summing only apples:apples counting blocks
+# 
+# par(mfrow=c(1,1))
+# plot(as.Date(names(C_sonar_bydate_a2a)), as.numeric(C_sonar_bydate_a2a),
+#      ylim=c(0,as.numeric(max(C_sonar_bydate_a2a, C_vis_bydate_a2a))),
+#      type='l',col=2,lwd=2,main="Chena")
+# lines(as.Date(names(C_vis_bydate_a2a)), C_vis_bydate_a2a, col=4,lwd=2)
+# legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
+# abline(h=0, lty=3)
+# 
+# 
+# 
+# ## Plotting:  just corresponding apples:apples counting blocks.  Plot should probably be zoomed bigly.
+# 
+# par(mfrow=c(1,1))
+# plot(as.numeric(C_sonar_byblock_a2a),
+#      ylim=c(0,as.numeric(max(C_sonar_byblock_a2a, C_all_vis_long_a2a$count))),
+#      type='l',col=2,lwd=2,main="Chena")
+# lines(C_all_vis_long_a2a$count, col=4,lwd=2)
+# legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
+# 
+# 
+# # checking overall totals
+# 
+# sum(C_all_sonar_a2a$length >= 400, na.rm=T)
+# sum(C_all_vis_long_a2a$count)
+# # sum(S_all_sonar_a2a$length >= 400, na.rm=T)
+# # sum(S_all_vis_long_a2a$count)
+# sum(C_sonar_byblock_a2a)
+# # sum(S_sonar_byblock_a2a)
+
+
+
+
+
+
 # adding sonar counts to the visual dataframe (long) for easier comparison
 
 ############################### this is where i stopped
 
-all(names(S_sonar_byblock_a2a) == S_all_vis_long_a2a$block)
-S_all_vis_long_a2a$sonarcount <- S_sonar_byblock_a2a
-S_all_vis_long_a2a$time <- (S_all_vis_long_a2a$shift-1)*8 + (S_all_vis_long_a2a$hour-1)
+all(names(C_sonar_byblock_a2a) == C_all_vis_long_a2a$block)
+C_all_vis_long_a2a$sonarcount <- C_sonar_byblock_a2a
+C_all_vis_long_a2a$time <- (C_all_vis_long_a2a$shift-1)*8 + (C_all_vis_long_a2a$hour-1)
 
 # trying a discrepancy score, kinda works
-S_all_vis_long_a2a$dscore1 <- ((S_all_vis_long_a2a$count + 1) / 
-                                 (S_all_vis_long_a2a$sonarcount + 1))
+C_all_vis_long_a2a$dscore1 <- ((C_all_vis_long_a2a$count + 1) / 
+                                 (C_all_vis_long_a2a$sonarcount + 1))
 
-a2a <- S_all_vis_long_a2a # making the name shorter for less typing
+a2a <- C_all_vis_long_a2a # making the name shorter for less typing
 
 boxplot(a2a$dscore1 ~ a2a$tech)
 abline(h=0:1, lty=3)
@@ -379,79 +431,79 @@ abline(h=0:1, lty=3)
 # trying a binomial logistic regression, under the assumption that sonar detects
 # all fish, and some proportion are detected visually (shaky, i know)
 
-yglm <- cbind(as.numeric(a2a$count),
-              ifelse(as.numeric(a2a$count)>as.numeric(a2a$sonarcount),
-                     as.numeric(a2a$count), as.numeric(a2a$sonarcount)))
+# yglm <- cbind(as.numeric(a2a$count),
+#               ifelse(as.numeric(a2a$count)>as.numeric(a2a$sonarcount),
+#                      as.numeric(a2a$count), as.numeric(a2a$sonarcount)))
+# 
+# a2a$tech2 <- ifelse(a2a$tech=="A", "A", "NotA")
+# # a2a$tech3 <- ifelse(a2a$tech=="Matt", "a", 
+# #                     ifelse(a2a$tech %in% c("Francine", "Mike"), "b", "c"))
+# a2a$clarity2 <- ifelse(a2a$clarity == 3, 3, "1-2")
+# glm(yglm ~ a2a$tech, family="binomial") %>% AIC
+# glm(yglm ~ a2a$tech2, family="binomial") %>% AIC
+# glm(yglm ~ a2a$tech3, family="binomial") %>% AIC
+# glm(yglm ~ a2a$shift, family="binomial") %>% AIC
+# glm(yglm ~ a2a$clarity, family="binomial") %>% AIC
+# glm(yglm ~ a2a$clarity2, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity), family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$time), family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity) + a2a$tech, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity) * a2a$tech, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity2) + a2a$tech, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity2) * a2a$tech, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity) + a2a$tech2, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity) * a2a$tech2, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity2) + a2a$tech2, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity2) * a2a$tech2, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity) + a2a$tech3, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity) * a2a$tech3, family="binomial") %>% AIC
+# glm(yglm ~ factor(a2a$clarity2) + a2a$tech3, family="binomial") %>% summary
+# glm(yglm ~ factor(a2a$clarity2) * a2a$tech3, family="binomial") %>% AIC
 
-a2a$tech2 <- ifelse(a2a$tech=="Matt", "Matt", "NotMatt")
-a2a$tech3 <- ifelse(a2a$tech=="Matt", "a", 
-                    ifelse(a2a$tech %in% c("Francine", "Mike"), "b", "c"))
-a2a$clarity2 <- ifelse(a2a$clarity == 3, 3, "1-2")
-glm(yglm ~ a2a$tech, family="binomial") %>% AIC
-glm(yglm ~ a2a$tech2, family="binomial") %>% AIC
-glm(yglm ~ a2a$tech3, family="binomial") %>% AIC
-glm(yglm ~ a2a$shift, family="binomial") %>% AIC
-glm(yglm ~ a2a$clarity, family="binomial") %>% AIC
-glm(yglm ~ a2a$clarity2, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity), family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$time), family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity) + a2a$tech, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity) * a2a$tech, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity2) + a2a$tech, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity2) * a2a$tech, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity) + a2a$tech2, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity) * a2a$tech2, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity2) + a2a$tech2, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity2) * a2a$tech2, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity) + a2a$tech3, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity) * a2a$tech3, family="binomial") %>% AIC
-glm(yglm ~ factor(a2a$clarity2) + a2a$tech3, family="binomial") %>% summary
-glm(yglm ~ factor(a2a$clarity2) * a2a$tech3, family="binomial") %>% AIC
-
-boxplot(a2a$dscore1 ~ a2a$tech3)
-boxplot(a2a$dscore1 ~ a2a$clarity2)
-with(subset(a2a, !is.na(clarity2)), boxplot(dscore1 ~ paste(tech3, clarity2), col=c(2,3,3,4,4)))
+# boxplot(a2a$dscore1 ~ a2a$tech3)
+# boxplot(a2a$dscore1 ~ a2a$clarity2)
+# with(subset(a2a, !is.na(clarity2)), boxplot(dscore1 ~ paste(tech3, clarity2), col=c(2,3,3,4,4)))
 
 
 
 # a whooooooooole bunch of visualizations!
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
   geom_point() +
   geom_abline(slope=1, intercept=0, lty=3)
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(tech))) +
   facet_wrap(~factor(clarity)) +
   geom_point() +
   geom_abline(slope=1, intercept=0, lty=3)
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
   facet_wrap(~factor(tech)) +
   geom_point() +
   geom_abline(slope=1, intercept=0, lty=3)
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
   facet_wrap(~factor(time)) +
   geom_point() +
   geom_abline(slope=1, intercept=0, lty=3)
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
   facet_wrap(~factor(date)) +
   geom_point() +
   geom_abline(slope=1, intercept=0, lty=3)
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity), pch=tech)) +
   facet_wrap(~factor(date)) +
   geom_point() +
   geom_abline(slope=1, intercept=0, lty=3)
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   group_by(tech) %>%
   summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
   ggplot(aes(x=sonarsum, y=visualsum, colour=tech)) + 
@@ -460,7 +512,7 @@ S_all_vis_long_a2a %>%
   scale_y_continuous(limits=c(0,220)) +
   geom_abline(slope=1, intercept=0, lty=3)
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   group_by(clarity) %>%
   summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
   ggplot(aes(x=sonarsum, y=visualsum, colour=factor(clarity))) + 
@@ -469,7 +521,7 @@ S_all_vis_long_a2a %>%
   scale_y_continuous(limits=c(0,260)) +
   geom_abline(slope=1, intercept=0, lty=3)
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   group_by(tech, clarity) %>%
   summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
   ggplot(aes(x=sonarsum, y=visualsum, colour=factor(clarity))) + 
@@ -479,7 +531,7 @@ S_all_vis_long_a2a %>%
   scale_y_continuous(limits=c(0,80)) +
   geom_abline(slope=1, intercept=0, lty=3)
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   group_by(time) %>%
   summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) %>%
   ggplot(aes(x=sonarsum, y=visualsum, colour=factor(time))) + 
@@ -488,7 +540,7 @@ S_all_vis_long_a2a %>%
   scale_y_continuous(limits=c(0,45)) +
   geom_abline(slope=1, intercept=0, lty=3)
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   group_by(date, shift) %>%
   summarise(sonarsum=sum(sonarcount), visualsum=sum(count), tech=tech[1], clarity=round(median(clarity))) %>%
   mutate(dscore1=(visualsum+10)/(sonarsum+10)) %>%
@@ -501,7 +553,7 @@ S_all_vis_long_a2a %>%
 
 
 
-S_all_vis_long_a2a %>%
+C_all_vis_long_a2a %>%
   group_by(date, clarity) %>%
   summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) -> aa #%>%
 # pivot_longer(cols=c("sonarsum","visualsum"), names_to="type") %>%
