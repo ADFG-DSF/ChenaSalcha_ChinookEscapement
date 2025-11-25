@@ -959,7 +959,7 @@ if(test_model) {
 
 # 100k in about 25 min if it succeeds - 2000k in 8 hrs
 # niter <- 2000*1000   # 100k still doesn't impressively converge
-niter <- 30*1000   
+niter <- 50*1000   
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
@@ -1013,10 +1013,25 @@ if(run_model) {
   tracedens_jags(Schin_hierout, p=c(paste0("y1est[",which.max(apply(Schin_hierout$sims.list$y1est[,,33],2,max)), ",33]")))
   tracedens_jags(Schum_hierout, p=c(paste0("y1est[",which.max(apply(Schum_hierout$sims.list$y1est[,,33],2,max)), ",33]")))
   
+  tracedens_jags(Cchin_hierout, p=c(paste0("theta1[",which.max(apply(Cchin_hierout$sims.list$theta1[,,33],2,max)), ",33]")))
+  tracedens_jags(Cchum_hierout, p=c(paste0("theta1[",which.max(apply(Cchum_hierout$sims.list$theta1[,,33],2,max)), ",33]")))
+  tracedens_jags(Schin_hierout, p=c(paste0("theta1[",which.max(apply(Schin_hierout$sims.list$theta1[,,33],2,max)), ",33]")))
+  tracedens_jags(Schum_hierout, p=c(paste0("theta1[",which.max(apply(Schum_hierout$sims.list$theta1[,,33],2,max)), ",33]")))
+  
   caterpillar(Cchin_hierout, p="a1")
   caterpillar(Cchum_hierout, p="a1")
   caterpillar(Schin_hierout, p="a1")
   caterpillar(Schum_hierout, p="a1")
+  
+  caterpillar(Cchin_hierout, p="b1")
+  caterpillar(Cchum_hierout, p="b1")
+  caterpillar(Schin_hierout, p="b1")
+  caterpillar(Schum_hierout, p="b1")
+  
+  caterpillar(Cchin_hierout, p="sigma1")
+  caterpillar(Cchum_hierout, p="sigma1")
+  caterpillar(Schin_hierout, p="sigma1")
+  caterpillar(Schum_hierout, p="sigma1")
   
   tracethemall <- function(x) {
     numrows <- nbyname(x)$y1est[1]
@@ -1265,6 +1280,14 @@ for(j in 1:ncol(Cchin_ham)) plot(Schum_ham[,j])
 # Cchum_ests2 <- Cchum_ests1
 # Schin_ests2 <- Schin_ests1
 # Schum_ests2 <- Schum_ests1
+
+
+par(mfrow=c(2,2))
+caterpillar(Cchin_ham[,1:44])
+caterpillar(Cchum_ham[,1:44])
+caterpillar(Schin_ham[,1:44])
+caterpillar(Schum_ham[,1:44])
+
 
 
 
