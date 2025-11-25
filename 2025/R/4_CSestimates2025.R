@@ -551,7 +551,14 @@ plot_ests(x=Schum_ests, main="Salcha Chum")
 
 runningavg_interp <- function(x) {
   avgcv <- mean(sqrt(x$vis_var_expansion)/x$vis_count_expanded, na.rm=T)
-  est <- ifelse(!is.na(x$vis_count_expanded), x$vis_count_expanded, x$sonar_count_expanded)
+  
+  ## original version
+  # est <- ifelse(!is.na(x$vis_count_expanded), x$vis_count_expanded, x$sonar_count_expanded)
+  
+  ## 2025 version - took out sonar
+  est <- x$vis_count_expanded
+  
+  
   # estvar <- ifelse(!is.na(x$vis_count_expanded), x$vis_var_expansion, x$sonar_var_expansion)
   interp_count <- interp_var <- rep(NA,nrow(x))
   for(i in 2:(length(est)-1)) {
@@ -934,7 +941,7 @@ ncores <- 6
 ## rather than an infinite loop when the issue is with the data, not the MCMC!
 # chin_hieroutTEST <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=1000, tryitonce=T, inits=haminits1) #
 # chum_hieroutTEST <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=1000, tryitonce=T, inits=haminits1) #
-test_model <- TRUE
+test_model <- FALSE
 if(test_model) {
   Cchin_hieroutTEST <- runHamachan(y1=Cchin_histo_counts, n.iter=1000, tryitonce=T) #, inits=haminits1
   Cchum_hieroutTEST <- runHamachan(y1=Cchum_histo_counts, n.iter=1000, tryitonce=T) # , inits=haminits1
@@ -946,7 +953,7 @@ if(test_model) {
 
 # 100k in about 25 min if it succeeds - 2000k in 8 hrs
 # niter <- 2000*1000   # 100k still doesn't impressively converge
-niter <- 50*1000   
+niter <- 5*1000   
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
