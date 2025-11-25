@@ -23,7 +23,9 @@ load(file="2025/Rdata/mixmodel2025.Rdata")
 
 # save_output <- TRUE  # FALSE  # whether to write output to external files
 save_output <- FALSE 
-run_model <- FALSE  # TRUE  # TRUE  # whether to (re)run the interpolation model
+
+run_model <- TRUE  # whether to (re)run the interpolation model
+# run_model <- FALSE  
 
 
 
@@ -36,7 +38,7 @@ run_model <- FALSE  # TRUE  # TRUE  # whether to (re)run the interpolation model
 
 
 # slightly kludgy thing for post-truncation of sonar based on input length...
-## in past years, 450 seemed to work best.  Not so obvious this year!
+## in past years, 450 seemed to work best.  
 trunc <- 450
 
 trunc_subset <- (all_fish$length >= trunc)
@@ -72,7 +74,9 @@ idate <- 1
 
 lthresh <- 650#650
 
-# this is a silly fix, oh well
+
+
+# this is a silly fix, oh well  --- 2025
 all_fish$station <- ifelse(all_fish$station=="towerside", "Chena North",
                            ifelse(all_fish$station=="coachman", "Chena South", 
                                   all_fish$station))
@@ -80,6 +84,8 @@ all_sonar$station <- ifelse(all_sonar$station=="towerside", "Chena North",
                            ifelse(all_sonar$station=="coachman", "Chena South", 
                                   all_sonar$station))
 all_sonar <- subset(all_sonar, !is.na(hour))
+
+
 
 for(datei in dates) {
   for(shifti in 1:3) {
@@ -407,25 +413,25 @@ Cchin_sheet <- Cchin_sheet_raw[seq(3, nrow(Cchin_sheet_raw), by=3),] %>%
   select(c("Day","N.d.Yd.avg..Hd", "var.Nd.")) %>%
   rename(N=N.d.Yd.avg..Hd, V=var.Nd., date=Day) %>%
   mutate(date = datesmasher(date)) %>%
-  mutate(V = as.numeric(V)) %>%
+  mutate(V = as.numeric(V)) %>%    ## NA coercion warning is expected (#DIV/0! in Excel)   
   mutate(N = as.numeric(N))
 Cchum_sheet <- Cchum_sheet_raw[seq(3, nrow(Cchin_sheet_raw), by=3),] %>%
   select(c("Day","N.d.Yd.avg..Hd", "var.Nd.")) %>%
   rename(N=N.d.Yd.avg..Hd, V=var.Nd., date=Day) %>%
   mutate(date = datesmasher(date)) %>%
-  mutate(V = as.numeric(V)) %>%
+  mutate(V = as.numeric(V)) %>%    ## NA coercion warning is expected (#DIV/0! in Excel)
   mutate(N = as.numeric(N))
 Schin_sheet <- Schin_sheet_raw[seq(3, nrow(Cchin_sheet_raw), by=3),] %>%
   select(c("Day","N.d.Yd.avg..Hd", "var.Nd.")) %>%
   rename(N=N.d.Yd.avg..Hd, V=var.Nd., date=Day) %>%
   mutate(date = datesmasher(date)) %>%
-  mutate(V = as.numeric(V)) %>%
+  mutate(V = as.numeric(V)) %>%    ## NA coercion warning is expected (#DIV/0! in Excel)
   mutate(N = as.numeric(N))
 Schum_sheet <- Schum_sheet_raw[seq(3, nrow(Cchin_sheet_raw), by=3),] %>%
   select(c("Day","N.d.Yd.avg..Hd", "var.Nd.")) %>%
   rename(N=N.d.Yd.avg..Hd, V=var.Nd., date=Day) %>%
   mutate(date = datesmasher(date)) %>%
-  mutate(V = as.numeric(V)) %>%
+  mutate(V = as.numeric(V)) %>%    ## NA coercion warning is expected (#DIV/0! in Excel)
   mutate(N = as.numeric(N))
 
 range(Cchin_sheet$date)
@@ -890,7 +896,7 @@ runHamachan <- function(y1,n.iter=5000,msg="",tryitonce=F,...) {
 
 
 
-## The Hamachan model can be temperemental.  It very often errors out with
+## The Hamachan model can be temperamental.  It very often errors out with
 ## "invalid parent values" in mid run.  The runHamachan function above provides
 ## a wrapper for running the thing, and keeps trying until it succeeds.
 
@@ -953,7 +959,7 @@ if(test_model) {
 
 # 100k in about 25 min if it succeeds - 2000k in 8 hrs
 # niter <- 2000*1000   # 100k still doesn't impressively converge
-niter <- 5*1000   
+niter <- 30*1000   
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
