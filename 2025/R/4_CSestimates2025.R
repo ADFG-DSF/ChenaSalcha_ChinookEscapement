@@ -1223,44 +1223,46 @@ censorizor <- function(x, n=1) {
 
 # trying values of n (num extreme values) to take out
 # - actually only need to sum the date range of interest
-rownames(Cchin_ests)[44] # aug 5 is the last date of interest
+lastday <- 54
+rownames(Cchin_ests)[lastday] # aug 15 is the last date of interest (in 2025)
+
 
 ns <- 0:50 # trial values of n
 Cchin_totsd <- Cchum_totsd <- Schin_totsd <- Schum_totsd <- NA*ns
 for(i in seq_along(ns)) {
   # # assuming daily estimates are independent
-  # Cchin_totsd[i] <- sqrt(sum(apply(censorizor(Cchin_ham0[,1:44], n=ns[i]), 2, var)))
-  # Cchum_totsd[i] <- sqrt(sum(apply(censorizor(Cchum_ham0[,1:44], n=ns[i]), 2, var)))
-  # Schin_totsd[i] <- sqrt(sum(apply(censorizor(Schin_ham0[,1:44], n=ns[i]), 2, var)))
-  # Schum_totsd[i] <- sqrt(sum(apply(censorizor(Schum_ham0[,1:44], n=ns[i]), 2, var)))
+  # Cchin_totsd[i] <- sqrt(sum(apply(censorizor(Cchin_ham0[,1:lastday], n=ns[i]), 2, var)))
+  # Cchum_totsd[i] <- sqrt(sum(apply(censorizor(Cchum_ham0[,1:lastday], n=ns[i]), 2, var)))
+  # Schin_totsd[i] <- sqrt(sum(apply(censorizor(Schin_ham0[,1:lastday], n=ns[i]), 2, var)))
+  # Schum_totsd[i] <- sqrt(sum(apply(censorizor(Schum_ham0[,1:lastday], n=ns[i]), 2, var)))
   
   # assuming daily estimates have covariance (only makes sense for method 2 above)
-  Cchin_totsd[i] <- sd(rowSums(censorizor(Cchin_ham0[,1:44], n=ns[i])))
-  Cchum_totsd[i] <- sd(rowSums(censorizor(Cchum_ham0[,1:44], n=ns[i])))
-  Schin_totsd[i] <- sd(rowSums(censorizor(Schin_ham0[,1:44], n=ns[i])))
-  Schum_totsd[i] <- sd(rowSums(censorizor(Schum_ham0[,1:44], n=ns[i])))
+  Cchin_totsd[i] <- sd(rowSums(censorizor(Cchin_ham0[,1:lastday], n=ns[i])))
+  Cchum_totsd[i] <- sd(rowSums(censorizor(Cchum_ham0[,1:lastday], n=ns[i])))
+  Schin_totsd[i] <- sd(rowSums(censorizor(Schin_ham0[,1:lastday], n=ns[i])))
+  Schum_totsd[i] <- sd(rowSums(censorizor(Schum_ham0[,1:lastday], n=ns[i])))
 }
 
 # plotting on the natural scale
 par(mfrow=c(2,2))
 plot(ns, Cchin_totsd)  
-abline(h=sqrt(sum(Cchin_vtheo[1:44])), lty=3)
+abline(h=sqrt(sum(Cchin_vtheo[1:lastday])), lty=3)
 plot(ns, Cchum_totsd)
-abline(h=sqrt(sum(Cchum_vtheo[1:44])), lty=3)
+abline(h=sqrt(sum(Cchum_vtheo[1:lastday])), lty=3)
 plot(ns, Schin_totsd)
-abline(h=sqrt(sum(Schin_vtheo[1:44])), lty=3)
+abline(h=sqrt(sum(Schin_vtheo[1:lastday])), lty=3)
 plot(ns, Schum_totsd)
-abline(h=sqrt(sum(Schum_vtheo[1:44])), lty=3)
+abline(h=sqrt(sum(Schum_vtheo[1:lastday])), lty=3)
 
 # plotting on the log scale
 plot(ns, Cchin_totsd, log="y")
-abline(h=sqrt(sum(Cchin_vtheo[1:44])), lty=3)
+abline(h=sqrt(sum(Cchin_vtheo[1:lastday])), lty=3)
 plot(ns, Cchum_totsd, log="y")
-abline(h=sqrt(sum(Cchum_vtheo[1:44])), lty=3)
+abline(h=sqrt(sum(Cchum_vtheo[1:lastday])), lty=3)
 plot(ns, Schin_totsd, log="y")
-abline(h=sqrt(sum(Schin_vtheo[1:44])), lty=3)
+abline(h=sqrt(sum(Schin_vtheo[1:lastday])), lty=3)
 plot(ns, Schum_totsd, log="y")
-abline(h=sqrt(sum(Schum_vtheo[1:44])), lty=3)
+abline(h=sqrt(sum(Schum_vtheo[1:lastday])), lty=3)
 
 head(Cchin_totsd)
 
@@ -1284,10 +1286,10 @@ for(j in 1:ncol(Cchin_ham)) plot(Schum_ham[,j])
 
 
 par(mfrow=c(2,2))
-caterpillar(Cchin_ham[,1:44])
-caterpillar(Cchum_ham[,1:44])
-caterpillar(Schin_ham[,1:44])
-caterpillar(Schum_ham[,1:44])
+caterpillar(Cchin_ham[,1:lastday])
+caterpillar(Cchum_ham[,1:lastday])
+caterpillar(Schin_ham[,1:lastday])
+caterpillar(Schum_ham[,1:lastday])
 
 
 
@@ -1426,18 +1428,24 @@ maketot <- function(x, from, to) {
   daterange <- (as.Date(rownames(x)) >= as.Date(from)) & (as.Date(rownames(x)) <= as.Date(to))
   return(c(sum(x$DailyEst[daterange]), sqrt(sum(x$DailyVar[daterange]))))
 }
-from="2025-06-23"
-to="2025-08-05"
-tots <- rbind(maketot(x=Cchin_final, from=from, to=to),
-              maketot(x=Cchum_final, from=from, to=to),
-              maketot(x=Schin_final, from=from, to=to),
-              maketot(x=Schum_final, from=from, to=to))
+
+#### INPUTS FOR DATE RANGE
+Cfrom="2025-06-30"
+Cto="2025-08-15"
+Sfrom="2025-07-03"
+Sto="2025-08-15"
+
+
+tots <- rbind(maketot(x=Cchin_final, from=Cfrom, to=Cto),
+              maketot(x=Cchum_final, from=Cfrom, to=Cto),
+              maketot(x=Schin_final, from=Sfrom, to=Sto),
+              maketot(x=Schum_final, from=Sfrom, to=Sto))
 tots1 <- data.frame(River=c("Chena","Chena","Salcha","Salcha"),
                     Species=c("Chinook","Chum","Chinook","Chum"),
                     Estimate=tots[,1],
                     SE=tots[,2],
-                    StartDate=from,
-                    EndDate=to)
+                    StartDate=c(Cfrom, Cfrom, Sfrom, Sfrom),
+                    EndDate=c(Cto, Cto, Sto, Sto))
 
 makeprops <- function(x, from, to) {
   daterange <- (as.Date(rownames(x)) >= as.Date(from)) & (as.Date(rownames(x)) <= as.Date(to))
@@ -1451,10 +1459,10 @@ makeprops <- function(x, from, to) {
   names(props) <- names(sums)
   return(props)
 }
-allprops <- rbind(makeprops(x=Cchin_final, from=from, to=to),
-                  makeprops(x=Cchum_final, from=from, to=to),
-                  makeprops(x=Schin_final, from=from, to=to),
-                  makeprops(x=Schum_final, from=from, to=to))
+allprops <- rbind(makeprops(x=Cchin_final, from=Cfrom, to=Cto),
+                  makeprops(x=Cchum_final, from=Cfrom, to=Cto),
+                  makeprops(x=Schin_final, from=Sfrom, to=Sto),
+                  makeprops(x=Schum_final, from=Sfrom, to=Sto))
 tots2 <- cbind(tots1, allprops)
 tots2
 
@@ -1475,10 +1483,10 @@ inflationizer <- function(est_summary, ham, from, to) {
   return(sqrt(vsum_all - vsum_raw + vsum_withcov))      # adding in var due to covariance
 }
 tots3 <- tots2
-tots3$SE <- c(inflationizer(est_summary=Cchin_final, ham=Cchin_ham, from=from, to=to),
-              inflationizer(est_summary=Cchum_final, ham=Cchum_ham, from=from, to=to),
-              inflationizer(est_summary=Schin_final, ham=Schin_ham, from=from, to=to),
-              inflationizer(est_summary=Schum_final, ham=Schum_ham, from=from, to=to))
+tots3$SE <- c(inflationizer(est_summary=Cchin_final, ham=Cchin_ham, from=Cfrom, to=Cto),
+              inflationizer(est_summary=Cchum_final, ham=Cchum_ham, from=Cfrom, to=Cto),
+              inflationizer(est_summary=Schin_final, ham=Schin_ham, from=Sfrom, to=Sto),
+              inflationizer(est_summary=Schum_final, ham=Schum_ham, from=Sfrom, to=Sto))
 tots3
 ## ^^ THIS METHOD WAS NOT USED, BUT IS RETAINED AS A CHECK ^^
 
@@ -1576,8 +1584,10 @@ tots1$SE
 tots2$SE
 tots3$SE
 
-Cwhich <- which(as.Date(rownames(Cchin_vcov)) >= as.Date(from) & as.Date(rownames(Cchin_vcov)) <= as.Date(to))
-Swhich <- which(as.Date(rownames(Schin_vcov)) >= as.Date(from) & as.Date(rownames(Schin_vcov)) <= as.Date(to))
+Cwhich <- which(as.Date(rownames(Cchin_vcov)) >= as.Date(Cfrom) & 
+                  as.Date(rownames(Cchin_vcov)) <= as.Date(Cto))
+Swhich <- which(as.Date(rownames(Schin_vcov)) >= as.Date(Sfrom) & 
+                  as.Date(rownames(Schin_vcov)) <= as.Date(Sto))
 tots4 <- tots3
 tots4$SE <- c(sqrt(sum(Cchin_vcov[Cwhich, Cwhich])),
               sqrt(sum(Cchum_vcov[Cwhich, Cwhich])),
@@ -1606,3 +1616,65 @@ if(save_output) {
   write.csv(Schin_vcov, file="2025/output/ChenaSalcha_SalchaChinook_vcov_2025.csv")
   write.csv(Schum_vcov, file="2025/output/ChenaSalcha_SalchaChum_vcov_2025.csv")
 }
+
+
+# plot cumulative SE wrt end date - starting at input date
+# plot cumulative CV wrt end date - starting at input date
+# plot cumulative SE wrt end date - starting at earliest date
+# plot cumulative CV wrt end date - starting at earliest date
+
+Cchin_cumSE <- NA
+Cchum_cumSE <- NA
+Cchin_cumN <- NA
+Cchum_cumN <- NA
+whichstart <- which(rownames(Cchin_vcov) == Cfrom)
+whichend <- which(rownames(Cchin_vcov) == Cto)
+
+for(i in whichstart:nrow(Cchin_vcov)) {
+  Cchin_cumSE[i] <- sqrt(sum(Cchin_vcov[whichstart:i, whichstart:i]))
+  Cchum_cumSE[i] <- sqrt(sum(Cchum_vcov[whichstart:i, whichstart:i]))
+  Cchin_cumN[i] <- sum(Cchin_final$DailyEst[whichstart:i])
+  Cchum_cumN[i] <- sum(Cchum_final$DailyEst[whichstart:i])
+}
+
+Schin_cumSE <- NA
+Schum_cumSE <- NA
+Schin_cumN <- NA
+Schum_cumN <- NA
+whichstart <- which(rownames(Schin_vcov) == Sfrom)
+whichend <- which(rownames(Schin_vcov) == Sto)
+
+for(i in whichstart:nrow(Schin_vcov)) {
+  Schin_cumSE[i] <- sqrt(sum(Schin_vcov[whichstart:i, whichstart:i]))
+  Schum_cumSE[i] <- sqrt(sum(Schum_vcov[whichstart:i, whichstart:i]))
+  Schin_cumN[i] <- sum(Schin_final$DailyEst[whichstart:i])
+  Schum_cumN[i] <- sum(Schum_final$DailyEst[whichstart:i])
+}
+
+par(mfrow=c(2,2))
+plot(as.Date(rownames(Cchin_final)), Cchin_cumSE,
+     xlab="", ylab="Cumulative SE", main="Chena Chinook - SE")
+plot(as.Date(rownames(Cchin_final)), Cchum_cumSE,
+     xlab="", ylab="Cumulative SE", main="Chena Chum - SE")
+plot(as.Date(rownames(Schin_final)), Schin_cumSE,
+     xlab="", ylab="Cumulative SE", main="Salcha Chinook - SE")
+plot(as.Date(rownames(Schin_final)), Schum_cumSE,
+     xlab="", ylab="Cumulative SE", main="Salcha Chum - SE")
+
+par(mfrow=c(2,2))
+plot(as.Date(rownames(Cchin_final)), Cchin_cumSE/Cchin_cumN,
+     xlab="", ylab="Cumulative CV", main="Chena Chinook - CV",
+     type="b", ylim=c(0, 0.5))
+abline(h=0, lty=3)
+plot(as.Date(rownames(Cchin_final)), Cchum_cumSE/Cchum_cumN,
+     xlab="", ylab="Cumulative CV", main="Chena Chum - CV",
+     type="b", ylim=c(0, 0.5))
+abline(h=0, lty=3)
+plot(as.Date(rownames(Schin_final)), Schin_cumSE/Schin_cumN,
+     xlab="", ylab="Cumulative CV", main="Salcha Chinook - CV",
+     type="b", ylim=c(0, 0.5))
+abline(h=0, lty=3)
+plot(as.Date(rownames(Schin_final)), Schum_cumSE/Schum_cumN,
+     xlab="", ylab="Cumulative CV", main="Salcha Chum - CV",
+     type="b", ylim=c(0, 0.5))
+abline(h=0, lty=3)
