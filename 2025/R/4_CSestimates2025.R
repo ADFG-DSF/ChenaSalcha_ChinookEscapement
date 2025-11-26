@@ -22,10 +22,10 @@ load(file="2025/Rdata/vis_2025.Rdata")
 load(file="2025/Rdata/mixmodel2025.Rdata")
 
 # save_output <- TRUE  # FALSE  # whether to write output to external files
-save_output <- FALSE 
+save_output <- FALSE
 
-run_model <- TRUE  # whether to (re)run the interpolation model
-# run_model <- FALSE  
+# run_model <- TRUE  # whether to (re)run the interpolation model
+run_model <- FALSE
 
 
 
@@ -459,6 +459,7 @@ checkthem <- function(ests, sheet) {
   x[logi,]
 }
 checkthem(ests=Cchin_ests, sheet=Cchin_sheet)
+# no problems!
 
 checkthem(ests=Cchum_ests, sheet=Cchum_sheet)
 #          date n_ests n_sheet v_ests v_sheet
@@ -959,7 +960,7 @@ if(test_model) {
 
 # 100k in about 25 min if it succeeds - 2000k in 8 hrs
 # niter <- 2000*1000   # 100k still doesn't impressively converge
-niter <- 50*1000   
+niter <- 250*1000   
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
@@ -1033,19 +1034,19 @@ if(run_model) {
   caterpillar(Schin_hierout, p="sigma1")
   caterpillar(Schum_hierout, p="sigma1")
   
-  tracethemall <- function(x) {
-    numrows <- nbyname(x)$y1est[1]
-    for(i in 1:numrows) {
-      tracedens_jags(x, p=paste0("y1est[",i,",33]"))
-    }
-  }
-  
-  ### careful - this makes a LOOOOOOT of plots!
-  par(mfrow=c(3,3))
-  tracethemall(x=Cchin_hierout)
-  tracethemall(x=Cchum_hierout)
-  tracethemall(x=Schin_hierout)
-  tracethemall(x=Schum_hierout)
+  # tracethemall <- function(x) {
+  #   numrows <- nbyname(x)$y1est[1]
+  #   for(i in 1:numrows) {
+  #     tracedens_jags(x, p=paste0("y1est[",i,",33]"))
+  #   }
+  # }
+  # 
+  # ### careful - this makes a LOOOOOOT of plots!
+  # par(mfrow=c(3,3))
+  # tracethemall(x=Cchin_hierout)
+  # tracethemall(x=Cchum_hierout)
+  # tracethemall(x=Schin_hierout)
+  # tracethemall(x=Schum_hierout)
   
   
   
