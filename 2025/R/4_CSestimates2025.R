@@ -959,7 +959,8 @@ if(test_model) {
 
 # 100k in about 25 min if it succeeds - 2000k in 8 hrs
 # niter <- 2000*1000   # 100k still doesn't impressively converge
-niter <- 1000*1000   
+# niter <- 1000*1000   
+niter <- 500*1000   
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
