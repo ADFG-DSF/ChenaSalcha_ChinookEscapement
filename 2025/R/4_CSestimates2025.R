@@ -6,11 +6,7 @@
 ## This script then compiles all estimates into output spreadsheets (.csv) for 
 ## each River x Species.
 
-## Note: much of this script is devoted to running the Hamachan model.  Since 
-## the Chena was so data-limited, the model was very unstable, resulting in 
-## a handful of wild MCMC samples that vastly inflated the overall variance.
-## In future years this might not be so much of a problem!
-
+## Note: much of this script is devoted to running the Hamachan model.  
 
 library(tidyverse)
 library(jagsUI)
@@ -21,11 +17,11 @@ load(file="2025/Rdata/sonardata2025.Rdata")
 load(file="2025/Rdata/vis_2025.Rdata")
 load(file="2025/Rdata/mixmodel2025.Rdata")
 
-# save_output <- TRUE  # FALSE  # whether to write output to external files
-save_output <- FALSE
+save_output <- TRUE  # FALSE  # whether to write output to external files
+# save_output <- FALSE
 
-# run_model <- TRUE  # whether to (re)run the interpolation model
-run_model <- FALSE
+run_model <- TRUE  # whether to (re)run the interpolation model
+# run_model <- FALSE
 
 
 
@@ -510,11 +506,13 @@ plot_ests <- function(x,...) {
   # lines(as.Date(rownames(x)), son95hi, col=2, lwd=1)
   # lines(as.Date(rownames(x)), son95lo, col=2, lwd=1)
   for(i in 2:length(datex)) polygon(c(datex[c(i-1,i)],rev(datex[c(i-1,i)])), c(son95lo[c(i-1,i)],rev(son95hi[c(i-1,i)])), border=NA, col=adjustcolor(2, alpha.f=.2))
-  lines(as.Date(rownames(x)), x$`650thresh_count_expanded`, col=6, lwd=2)
-  # lines(as.Date(rownames(x)), son95hi, col=2, lwd=1)
-  # lines(as.Date(rownames(x)), son95lo, col=2, lwd=1)
-  for(i in 2:length(datex)) polygon(c(datex[c(i-1,i)],rev(datex[c(i-1,i)])), c(thr95lo[c(i-1,i)],rev(thr95hi[c(i-1,i)])), border=NA, col=adjustcolor(6, alpha.f=.2))
-  legend("topleft",fill=adjustcolor(c(4,2,6),alpha.f=.3),legend=c("visual","sonar","650mm"))
+  # lines(as.Date(rownames(x)), x$`650thresh_count_expanded`, col=6, lwd=2)
+  # # lines(as.Date(rownames(x)), son95hi, col=2, lwd=1)
+  # # lines(as.Date(rownames(x)), son95lo, col=2, lwd=1)
+  # for(i in 2:length(datex)) polygon(c(datex[c(i-1,i)],rev(datex[c(i-1,i)])), c(thr95lo[c(i-1,i)],rev(thr95hi[c(i-1,i)])), border=NA, col=adjustcolor(6, alpha.f=.2))
+  
+  # legend("topleft",fill=adjustcolor(c(4,2,6),alpha.f=.3),legend=c("visual","sonar","650mm"))
+  legend("topleft",fill=adjustcolor(c(4,2),alpha.f=.3),legend=c("visual","sonar"))
 }
 par(mfrow=c(2,2))
 plot_ests(x=Cchin_ests, main="Chena Chinook")
@@ -627,6 +625,7 @@ for(i in 1:length(notallowed)) {  # still works, but would have been more effici
   Schum_histo_counts[Schum_histo_counttype == notallowed[i]] <- NA
 }
 
+## note: historical data ends in 2024 for year 2025, this is expected
 colnames(Cchin_histo_counts) <- paste0("count",1993:2024)
 colnames(Cchum_histo_counts) <- paste0("count",1993:2024)
 colnames(Schin_histo_counts) <- paste0("count",1993:2024)
@@ -960,7 +959,7 @@ if(test_model) {
 
 # 100k in about 25 min if it succeeds - 2000k in 8 hrs
 # niter <- 2000*1000   # 100k still doesn't impressively converge
-niter <- 250*1000   
+niter <- 1000*1000   
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
@@ -1165,15 +1164,89 @@ if(run_model) {
   Schin_ham <- exp(Schin_hierout$sims.list$y1est[,,nyr])-1
   Schum_ham <- exp(Schum_hierout$sims.list$y1est[,,nyr])-1
   
+  Cchin_allests <- exp(Cchin_hierout$q50$y1est)#-1
+  Cchum_allests <- exp(Cchum_hierout$q50$y1est)#-1
+  Schin_allests <- exp(Schin_hierout$q50$y1est)#-1
+  Schum_allests <- exp(Schum_hierout$q50$y1est)#-1
+  
   save_output
   if(save_output) {
     save(Cchin_ham, Cchum_ham, Schin_ham, Schum_ham, 
+         Cchin_allests, Cchum_allests, Schin_allests, Schum_allests, 
          file="2025/Rdata/hier_runtiming2025.Rdata")
   } else {
     load(file="2025/Rdata/hier_runtiming2025.Rdata")   # think about this construct
   }
   
 }
+
+plotlines <- function(x, xlab="", ylab="", main="", ...) {  # x is a matrix
+  plot(NA, xlim=c(1, nrow(x)), ylim=c(1, max(x, na.rm=TRUE)), 
+       xlab=xlab, ylab=ylab, main=main, ...=...)
+  cols <- adjustcolor(rainbow(ncol(x)), green.f=.8, red.f=.8, blue.f=.8, alpha.f=.5)
+  for(j in 1:ncol(x)) {
+    lines(x[,j], col=cols[j])
+  }
+}
+
+lastday <- 54
+rownames(Cchin_ests)[lastday]
+
+par(mfrow=c(2,2))
+
+# plotlines(Cchin_allests,
+#           main="Chena King", ylab="escapement")
+# lines(Cchin_allests[,nyr], lwd=2)
+# points(Cchin_histo_counts[,nyr], pch=16)
+# legend("topleft", lwd=2, legend=2025)
+# 
+# plotlines(Cchum_allests,
+#           main="Chena Chum", ylab="escapement")
+# lines(Cchum_allests[,nyr], lwd=2)
+# points(Cchum_histo_counts[,nyr], pch=16)
+# legend("topleft", lwd=2, legend=2025)
+# 
+# plotlines(Schin_allests,
+#           main="Salcha King", ylab="escapement")
+# lines(Schin_allests[,nyr], lwd=2)
+# points(Schin_histo_counts[,nyr], pch=16)
+# legend("topleft", lwd=2, legend=2025)
+# 
+# plotlines(Schum_allests,
+#           main="Salcha Chum", ylab="escapement")
+# lines(Schum_allests[,nyr], lwd=2)
+# points(Schum_histo_counts[,nyr], pch=16)
+# legend("topleft", lwd=2, legend=2025)
+
+par(mfrow=c(2,2))
+
+plotlines(Cchin_allests,
+          main="Chena King", ylab="escapement", log="y")
+lines(Cchin_allests[,nyr], lwd=2)
+points(Cchin_histo_counts[,nyr], pch=16)
+legend("topleft", lwd=2, legend=2025)
+abline(v=lastday, lty=3)
+
+plotlines(Cchum_allests,
+          main="Chena Chum", ylab="escapement", log="y")
+lines(Cchum_allests[,nyr], lwd=2)
+points(Cchum_histo_counts[,nyr], pch=16)
+legend("topleft", lwd=2, legend=2025)
+abline(v=lastday, lty=3)
+
+plotlines(Schin_allests,
+          main="Salcha King", ylab="escapement", log="y")
+lines(Schin_allests[,nyr], lwd=2)
+points(Schin_histo_counts[,nyr], pch=16)
+legend("topleft", lwd=2, legend=2025)
+abline(v=lastday, lty=3)
+
+plotlines(Schum_allests,
+          main="Salcha Chum", ylab="escapement", log="y")
+lines(Schum_allests[,nyr], lwd=2)
+points(Schum_histo_counts[,nyr], pch=16)
+legend("topleft", lwd=2, legend=2025)
+abline(v=lastday, lty=3)
 
 ### taking out the most extreme values of the MCMC for each date
 
@@ -1652,13 +1725,13 @@ for(i in whichstart:nrow(Schin_vcov)) {
 }
 
 par(mfrow=c(2,2))
-plot(as.Date(rownames(Cchin_final)), Cchin_cumSE,
+plot(as.Date(rownames(Cchin_final)), Cchin_cumSE, type="b",
      xlab="", ylab="Cumulative SE", main="Chena Chinook - SE")
-plot(as.Date(rownames(Cchin_final)), Cchum_cumSE,
+plot(as.Date(rownames(Cchin_final)), Cchum_cumSE, type="b",
      xlab="", ylab="Cumulative SE", main="Chena Chum - SE")
-plot(as.Date(rownames(Schin_final)), Schin_cumSE,
+plot(as.Date(rownames(Schin_final)), Schin_cumSE, type="b",
      xlab="", ylab="Cumulative SE", main="Salcha Chinook - SE")
-plot(as.Date(rownames(Schin_final)), Schum_cumSE,
+plot(as.Date(rownames(Schin_final)), Schum_cumSE, type="b",
      xlab="", ylab="Cumulative SE", main="Salcha Chum - SE")
 
 par(mfrow=c(2,2))
@@ -1678,3 +1751,21 @@ plot(as.Date(rownames(Schin_final)), Schum_cumSE/Schum_cumN,
      xlab="", ylab="Cumulative CV", main="Salcha Chum - CV",
      type="b", ylim=c(0, 0.5))
 abline(h=0, lty=3)
+
+par(mfrow=c(2,2))
+plot(as.Date(rownames(Cchin_final)), Cchin_cumN + 2*Cchin_cumSE, lty=3, type='l',
+     xlab="", ylab="Cumulative N", main="Chena Chinook - N")
+lines(as.Date(rownames(Cchin_final)), Cchin_cumN - 2*Cchin_cumSE, lty=3)
+points(as.Date(rownames(Cchin_final)), Cchin_cumN, lty=3)
+plot(as.Date(rownames(Cchum_final)), Cchum_cumN + 2*Cchum_cumSE, lty=3, type='l',
+     xlab="", ylab="Cumulative N", main="Chena Chum - N")
+lines(as.Date(rownames(Cchum_final)), Cchum_cumN - 2*Cchum_cumSE, lty=3)
+points(as.Date(rownames(Cchum_final)), Cchum_cumN, lty=3)
+plot(as.Date(rownames(Schin_final)), Schin_cumN + 2*Schin_cumSE, lty=3, type='l',
+     xlab="", ylab="Cumulative N", main="Salcha Chinook - N")
+lines(as.Date(rownames(Schin_final)), Schin_cumN - 2*Schin_cumSE, lty=3)
+points(as.Date(rownames(Schin_final)), Schin_cumN, lty=3)
+plot(as.Date(rownames(Schum_final)), Schum_cumN + 2*Schum_cumSE, lty=3, type='l',
+     xlab="", ylab="Cumulative N", main="Salcha Chum - N")
+lines(as.Date(rownames(Schum_final)), Schum_cumN - 2*Schum_cumSE, lty=3)
+points(as.Date(rownames(Schum_final)), Schum_cumN, lty=3)

@@ -21,8 +21,14 @@
 
 library(tidyverse)
 
+## -- whether to save output to external files
 # save_output <- TRUE
-save_output <- FALSE  # whether to save output to external files
+save_output <- FALSE  
+# these files live in /2025/Rdata as .Rdata files
+
+## -- whether to (re)run models for length and run-timing priors
+# run_models <- TRUE
+run_models <- FALSE
 # these files live in /2025/Rdata as .Rdata files
 
 
@@ -142,6 +148,7 @@ standardize_ARIS <- function(x, river, station) {
 ## bundling all sonar data into one monster data.frame
 
 all_sonar <- standardize_ARIS(Chena_all, river="Chena", station="Salcha South")
+# note: Warning messages are ok, and station="Salcha South" above doesn't matter
 
 all_sonar$station <- strsplit(Chena_all$FileName, split=" ") %>%
   sapply(., "[", 2) %>%
@@ -152,6 +159,9 @@ all_sonar$station <- strsplit(Chena_all$FileName, split=" ") %>%
 head(all_sonar)
 summary(all_sonar)
 dim(all_sonar)
+
+
+## some things retained from previous years in case we need to use them again
 
 # # with(all_sonar, boxplot(date~station))   ## oops the date in Salcha South is formatted wrong, fixed above
 # 
@@ -192,6 +202,7 @@ all_fish <- subset(all_sonar, length>=400)
 summary(all_fish)
 dim(all_fish)
 
+
 ## I think these checks didn't work and can be taken out
 
 # # block2 <- all_sonar
@@ -214,7 +225,7 @@ dim(all_fish)
 
 
 ## saving the sonar data!
-
+save_output
 if(save_output) {
   save(all_sonar, all_fish, file="2025/Rdata/sonardata2025.Rdata")
 }
@@ -253,10 +264,8 @@ names(Chena_all_nonreviewed)
 ## bundling all sonar data into one monster data.frame
 
 all_sonar_nonreviewed <- standardize_ARIS(Chena_all_nonreviewed, river="Chena", station="Salcha South")
+## note: Warning messages don't matter, and neither does station="Salcha South" above
 
-# all_sonar_nonreviewed$station <- strsplit(Chena_all_nonreviewed$FileName, split=" ") %>%
-#   sapply(., "[", 2) %>%
-#   tolower
 all_sonar_nonreviewed$station <- substr(Chena_all_nonreviewed$FileName, 76, 80) 
 
 ## i hate data checks
@@ -264,22 +273,6 @@ all_sonar_nonreviewed$station <- substr(Chena_all_nonreviewed$FileName, 76, 80)
 head(all_sonar_nonreviewed)
 summary(all_sonar_nonreviewed)
 dim(all_sonar_nonreviewed)
-
-# # with(all_sonar_nonreviewed, boxplot(date~station))   ## oops the date in Salcha South is formatted wrong, fixed above
-# 
-# ## why the NA values?
-# with(all_sonar, table(is.na(date), is.na(length)))
-# subset(all_sonar, is.na(date))
-# subset(all_sonar, is.na(length))
-# 
-# with(all_sonar, table(is.na(date), station))    ## none with Chena South, which was the only DIDSON.  ARIS problem??
-# with(all_sonar, table(is.na(length), station))
-# with(all_sonar, table(is.na(sec), station))
-# 
-# ## looking at the way 2018 was formatted..
-# load(file="2018 materials/sonardata2018.Rdata")
-# summary(all_sonar)  # old version of all_sonar from 2018 .. only NA values in length, signifying no fish in file
-
 
 
 
@@ -294,7 +287,7 @@ all_fish_nonreviewed <- subset(all_sonar_nonreviewed, length>=400)
 summary(all_fish_nonreviewed)
 dim(all_fish_nonreviewed)
 
-
+save_output
 if(save_output) {
   save(all_sonar_nonreviewed, all_fish_nonreviewed, file="2025/Rdata/sonardata2025_nonreviewed.Rdata")
 }
@@ -313,6 +306,12 @@ library(tidyverse)
 #  2. Length priors 
 #
 ###################
+
+# Some necessary inputs for the sonar mixture model are the respective means, 
+# SE's, and SD's of lengths for all possible combinations of river / species / sex.
+# This is estimated using a hierarchical model incorporating carcass data from
+# all years.
+
 
 ## Carcass data .csv file has been appended each year
 
@@ -361,7 +360,7 @@ carcassyrs <- sort(unique(lengthdata$year))
 
 ## plotting the distribution of each years' carcass lengths
 
-par(mfrow=c(2,1))
+par(mfrow=c(2,2))
 for(riv in c("Chena","Salcha")) {
   for(spec in c("Chinook","Chum")) {
     for(sexx in c("male","female")) {
@@ -378,6 +377,8 @@ for(riv in c("Chena","Salcha")) {
 ## Hierarchical model to estimate mean, sd, and se of carcass lengths for each category.
 ## Output from this model will be used as priors for the big sonar mixture model!
 
+run_models
+if(run_models) {
 library(jagsUI)
 library(jagshelper)
 ncores <- 10#6  # number of cores for parallel chains.  I use 10 on the big desktop, 6 for laptop
@@ -478,7 +479,7 @@ subset(lengthdata, year==2025) %>%
 subset(lengthdata, year==2025) %>% 
   points(Length ~ jitter(cat), data=.)
 caterpillar(length_jags_out, "catmean", add=TRUE, lwd=2)
-
+}
 
 
 
@@ -501,7 +502,7 @@ caterpillar(length_jags_out, "catmean", add=TRUE, lwd=2)
 ## non-expanded visual counts for each day as input data.  Regression coefficients are treated as 
 ## hierarchically distributed.  Since the timing of the chum and king runs for the Chena and Salcha
 ## rivers tend to be similar each year, the coefficient pairs (intercepts for both rivers, slopes
-## for both rivers) are assumed to be MVN, allowing the inclusion of a correlation parameter.
+## for both rivers) are assumed to be multivariate Normal (MVN), allowing the inclusion of a correlation parameter.
 ## If one river's sonar season is compromised, this allows the borrowing of information from the
 ## other river.
 
@@ -538,6 +539,10 @@ Salcha_sub <- Salcha_sub[rowSums(Salcha_sub[,2:3])>0,]
 ### if we wanted to mess with effective sample size, here's a place we could do it
 # Chena_sub[,2:3] <- round(Chena_sub[,2:3]/6)
 # Salcha_sub[,2:3] <- round(Salcha_sub[,2:3]/6)
+
+
+run_models
+if(run_models) {
 
 # specify model, which is written to a temporary file
 CS_jags <- tempfile()
@@ -648,7 +653,7 @@ b0_prec_alt <- CS_jags_out_alt$sd$b0^(-2)
 b1_prec_alt <- CS_jags_out_alt$sd$b1^(-2)
 
 # save(CS_jags_out, length.jags.out, lengthdata, file="priorouts.Rdata")
-
+}
 
 
 
@@ -668,7 +673,7 @@ for(i in 1:length(yearsboth)) {
   plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Chena",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
   curve(expit(ayr[1]+ayr[2]*x),add=T)
   curve(expit(a0[i,1]+a1[i,1]*x),add=T,col=4,lty=2,lwd=2)
-  curve(expit(b0[1]+b1[1]*x),add=T,lty=3,col=2)
+  if(run_models) curve(expit(b0[1]+b1[1]*x),add=T,lty=3,col=2)
 }
 plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
 legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
@@ -682,7 +687,7 @@ for(i in 1:length(yearsboth)) {
   plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Chena",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
   curve(expit(ayr[1]+ayr[2]*x),add=T)
   curve(expit(a0_alt[i,1]+a1_alt[i,1]*x),add=T,col=4,lty=2,lwd=2)
-  curve(expit(b0_alt[1]+b1_alt[1]*x),add=T,lty=3,col=2)
+  if(run_models) curve(expit(b0_alt[1]+b1_alt[1]*x),add=T,lty=3,col=2)
 }
 plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
 legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
@@ -699,7 +704,7 @@ for(i in 1:length(yearsboth)) {
   plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Salcha",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
   curve(expit(ayr[1]+ayr[2]*x),add=T)
   curve(expit(a0[i,2]+a1[i,2]*x),add=T,col=4,lty=2,lwd=2)
-  curve(expit(b0[2]+b1[2]*x),add=T,lty=3,col=2)
+  if(run_models) curve(expit(b0[2]+b1[2]*x),add=T,lty=3,col=2)
 }
 plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
 legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
@@ -713,7 +718,7 @@ for(i in 1:length(yearsboth)) {
   plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Salcha",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
   curve(expit(ayr[1]+ayr[2]*x),add=T)
   curve(expit(a0_alt[i,2]+a1_alt[i,2]*x),add=T,col=4,lty=2,lwd=2)
-  curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=3,col=2)
+  if(run_models) curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=3,col=2)
 }
 plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
 legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
@@ -732,7 +737,7 @@ for(i in length(yearsboth)) {
   plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Chena",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
   curve(expit(ayr[1]+ayr[2]*x),add=T)
   curve(expit(a0[i,1]+a1[i,1]*x),add=T,col=4,lty=2,lwd=2)
-  curve(expit(b0[1]+b1[1]*x),add=T,lty=3,col=2)
+  if(run_models) curve(expit(b0[1]+b1[1]*x),add=T,lty=3,col=2)
 }
 # plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
 legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
@@ -744,7 +749,7 @@ for(i in length(yearsboth)) {
   plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Salcha",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
   curve(expit(ayr[1]+ayr[2]*x),add=T)
   curve(expit(a0[i,2]+a1[i,2]*x),add=T,col=4,lty=2,lwd=2)
-  curve(expit(b0[2]+b1[2]*x),add=T,lty=3,col=2)
+  if(run_models) curve(expit(b0[2]+b1[2]*x),add=T,lty=3,col=2)
 }
 # plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
 legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
@@ -754,7 +759,7 @@ plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Chena
 for(i in 1:length(yearsboth)) {
   curve(expit(a0[i,1]+a1[i,1]*x),add=T)
 }
-curve(expit(b0[1]+b1[1]*x),add=T,lty=2,lwd=3)
+if(run_models) curve(expit(b0[1]+b1[1]*x),add=T,lty=2,lwd=3)
 curve(expit(a0[length(yearsboth),1]+a1[length(yearsboth),1]*x),add=T,lwd=3)
 legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=c(1,3,3),lty=c(1,2,1))
 
@@ -762,24 +767,33 @@ plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Salch
 for(i in 1:length(yearsboth)) {
   curve(expit(a0[i,2]+a1[i,2]*x),add=T)
 }
-curve(expit(b0[2]+b1[2]*x),add=T,lty=2,lwd=3)
+if(run_models) curve(expit(b0[2]+b1[2]*x),add=T,lty=2,lwd=3)
 curve(expit(a0[length(yearsboth),2]+a1[length(yearsboth),2]*x),add=T,lwd=3)
 legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=c(1,3,3),lty=c(1,2,1))
 
-
+if(run_models) {
 xx <- min(Chena_sub$date205, na.rm=TRUE):max(Chena_sub$date205, na.rm=TRUE)
 a0p <- CS_jags_out$sims.list$a0[,length(yearsboth),]
 a1p <- CS_jags_out$sims.list$a1[,length(yearsboth),]
 
 predp <- expit(a0p[,1] + outer(a1p[,1], xx))
 envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Chena", ylim=0:1)
+} else {
+  plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Chena")
+  curve(expit(a0[length(yearsboth),1]+a1[length(yearsboth),1]*x),add=T,lty=2, col=4)
+}
 asdf <- subset(Chena_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
 text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
      labels=(asdf$chinook+asdf$chum), pos=4)
 
+if(run_models) {
 predp <- expit(a0p[,2] + outer(a1p[,2], xx))
 envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha", ylim=0:1)
+} else {
+  plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Salcha")
+  curve(expit(a0[length(yearsboth),2]+a1[length(yearsboth),2]*x),add=T,lty=2, col=4)
+}
 asdf <- subset(Salcha_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
 text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
@@ -797,7 +811,7 @@ for(i in length(yearsboth)) {
   plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Chena",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
   curve(expit(ayr[1]+ayr[2]*x),add=T)
   curve(expit(a0_alt[i,1]+a1_alt[i,1]*x),add=T,col=4,lty=2,lwd=2)
-  curve(expit(b0_alt[1]+b1_alt[1]*x),add=T,lty=3,col=2)
+  if(run_models) curve(expit(b0_alt[1]+b1_alt[1]*x),add=T,lty=3,col=2)
 }
 # plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
 legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
@@ -809,7 +823,7 @@ for(i in length(yearsboth)) {
   plot(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum),main=paste("Salcha",yearsboth[i]),ylab="proportion Chinook",xlab="day",ylim=0:1,xlim=range(Chena_sub$date205))
   curve(expit(ayr[1]+ayr[2]*x),add=T)
   curve(expit(a0_alt[i,2]+a1_alt[i,2]*x),add=T,col=4,lty=2,lwd=2)
-  curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=3,col=2)
+  if(run_models) curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=3,col=2)
 }
 # plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
 legend("topright",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
@@ -819,7 +833,7 @@ plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Chena
 for(i in 1:length(yearsboth)) {
   curve(expit(a0_alt[i,1]+a1_alt[i,1]*x),add=T)
 }
-curve(expit(b0_alt[1]+b1_alt[1]*x),add=T,lty=2,lwd=3)
+if(run_models) curve(expit(b0_alt[1]+b1_alt[1]*x),add=T,lty=2,lwd=3)
 curve(expit(a0_alt[length(yearsboth),1]+a1_alt[length(yearsboth),1]*x),add=T,lwd=3)
 legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=c(1,3,3),lty=c(1,2,1))
 
@@ -827,24 +841,33 @@ plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Salch
 for(i in 1:length(yearsboth)) {
   curve(expit(a0_alt[i,2]+a1_alt[i,2]*x),add=T)
 }
-curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=2,lwd=3)
+if(run_models) curve(expit(b0_alt[2]+b1_alt[2]*x),add=T,lty=2,lwd=3)
 curve(expit(a0_alt[length(yearsboth),2]+a1_alt[length(yearsboth),2]*x),add=T,lwd=3)
 legend("topright",legend=c("yearly","average",yearsboth[length(yearsboth)]),lwd=c(1,3,3),lty=c(1,2,1))
 
-
+if(run_models) {
 xx <- min(Chena_sub$date205, na.rm=TRUE):max(Chena_sub$date205, na.rm=TRUE)
 a0p <- CS_jags_out_alt$sims.list$a0[,length(yearsboth),]
 a1p <- CS_jags_out_alt$sims.list$a1[,length(yearsboth),]
 
 predp <- expit(a0p[,1] + outer(a1p[,1], xx))
 envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Chena", ylim=0:1)
+} else {
+  plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Chena")
+  curve(expit(a0_alt[length(yearsboth),1]+a1_alt[length(yearsboth),1]*x),add=T,col=4, lty=2)
+}
 asdf <- subset(Chena_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
 text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
      labels=(asdf$chinook+asdf$chum), pos=4)
 
+if(run_models) {
 predp <- expit(a0p[,2] + outer(a1p[,2], xx))
 envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha", ylim=0:1)
+} else {
+  plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Salcha")
+  curve(expit(a0_alt[length(yearsboth),2]+a1_alt[length(yearsboth),2]*x),add=T,col=4, lty=2)
+}
 asdf <- subset(Salcha_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
 text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
@@ -857,3 +880,4 @@ if(save_output) {
        prior_mn, prior_sd_mn, prior_sd_sd, prior_se, 
        file="2025/Rdata/CSpriors2025.Rdata")
 }
+# load(file="2025/Rdata/CSpriors2025.Rdata")

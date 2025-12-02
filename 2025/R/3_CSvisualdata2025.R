@@ -117,7 +117,8 @@ cbind(Schin_check, Salcha_2025_Chin_vis,
       Salcha_2025_Chin_vis[, 3:10] == Salcha_2025_Clarity_vis[,3:10])[Schin_check>0,]
 cbind(Schum_check, Salcha_2025_Chum_vis, 
       Salcha_2025_Chum_vis[, 3:10] == Salcha_2025_Clarity_vis[,3:10])[Schum_check>0,]
-
+# looks like Chena King has one date (7/16) with 4 sequential blocks with the same count
+# as the clarity values - investigate??
 
 
 # fixing basic imputation stuff
@@ -580,37 +581,38 @@ for(i in 1:3) {
 
 
 
-## Trying multiple truncations.  Difficult to know what's best.
+## Trying multiple truncations.  This was a thing in previous years but doesn't
+## really add anything in 2025.
 
 par(mfrow=c(3,3))
 truncs <- seq(400,600, by=25)
 for(i in 1:length(truncs)) {
-  # CSouth_all_sonar <- subset(all_sonar, station=="Chena South")
-  # CNorth_all_sonar <- subset(all_sonar, station=="Chena North")
-  SSouth_all_sonar <- subset(all_sonar, station=="Salcha South")
-  SNorth_all_sonar <- subset(all_sonar, station=="Salcha North")
-  # C_all_sonar <- subset(all_sonar, river=="Chena")
-  S_all_sonar <- subset(all_sonar, river=="Salcha")
-  # C_blocks_both <- intersect(C_all_vis_long$block[!is.na(C_all_vis_long$count)],
-  #                            intersect(CSouth_all_sonar$block, CNorth_all_sonar$block))
-  S_blocks_both <- intersect(S_all_vis_long$block[!is.na(S_all_vis_long$count)],
-                             intersect(SSouth_all_sonar$block, SNorth_all_sonar$block))
+  CSouth_all_sonar <- subset(all_sonar, station=="coachman")
+  CNorth_all_sonar <- subset(all_sonar, station=="towerside")
+  # SSouth_all_sonar <- subset(all_sonar, station=="Salcha South")
+  # SNorth_all_sonar <- subset(all_sonar, station=="Salcha North")
+  C_all_sonar <- subset(all_sonar, river=="Chena")
+  # S_all_sonar <- subset(all_sonar, river=="Salcha")
+  C_blocks_both <- intersect(C_all_vis_long$block[!is.na(C_all_vis_long$count)],
+                             intersect(CSouth_all_sonar$block, CNorth_all_sonar$block))
+  # S_blocks_both <- intersect(S_all_vis_long$block[!is.na(S_all_vis_long$count)],
+  #                            intersect(SSouth_all_sonar$block, SNorth_all_sonar$block))
   
   # S_blocks_both1 <- sort(unique(subset(S_all_vis_long, block %in% S_blocks_both & clarity %in% 1:2)$block))
   # S_blocks_both <- S_blocks_both1
   
-  # C_all_sonar_a2a <- subset(C_all_sonar, block %in% C_blocks_both)
-  S_all_sonar_a2a <- subset(S_all_sonar, block %in% S_blocks_both)
+  C_all_sonar_a2a <- subset(C_all_sonar, block %in% C_blocks_both)
+  # S_all_sonar_a2a <- subset(S_all_sonar, block %in% S_blocks_both)
   
-  # C_all_vis_long_a2a <- subset(C_all_vis_long, block %in% C_blocks_both)
-  S_all_vis_long_a2a <- subset(S_all_vis_long, block %in% S_blocks_both)
+  C_all_vis_long_a2a <- subset(C_all_vis_long, block %in% C_blocks_both)
+  # S_all_vis_long_a2a <- subset(S_all_vis_long, block %in% S_blocks_both)
   
-  # C_sonar_bydate_a2a <- table(C_all_sonar_a2a$date[C_all_sonar_a2a$length >= truncs[i]])
-  S_sonar_bydate_a2a <- table(as.factor(S_all_sonar_a2a$date)[S_all_sonar_a2a$length >= truncs[i]])
-  # C_sonar_byblock_a2a <- table(as.factor(C_all_sonar_a2a$block)[C_all_sonar_a2a$length >= truncs[i]])
-  S_sonar_byblock_a2a <- table(as.factor(S_all_sonar_a2a$block)[S_all_sonar_a2a$length >= truncs[i]])
-  # C_vis_bydate_a2a <- with(C_all_vis_long_a2a, tapply(count, as.character(date), sum))
-  S_vis_bydate_a2a <- with(S_all_vis_long_a2a, tapply(count, as.character(date), sum))
+  C_sonar_bydate_a2a <- table(C_all_sonar_a2a$date[C_all_sonar_a2a$length >= truncs[i]])
+  # S_sonar_bydate_a2a <- table(as.factor(S_all_sonar_a2a$date)[S_all_sonar_a2a$length >= truncs[i]])
+  C_sonar_byblock_a2a <- table(as.factor(C_all_sonar_a2a$block)[C_all_sonar_a2a$length >= truncs[i]])
+  # S_sonar_byblock_a2a <- table(as.factor(S_all_sonar_a2a$block)[S_all_sonar_a2a$length >= truncs[i]])
+  C_vis_bydate_a2a <- with(C_all_vis_long_a2a, tapply(count, as.character(date), sum))
+  # S_vis_bydate_a2a <- with(S_all_vis_long_a2a, tapply(count, as.character(date), sum))
   
   
   
@@ -618,21 +620,21 @@ for(i in 1:length(truncs)) {
   ## Plotting:  First DAILY TOTALS summing only apples:apples counting blocks
   
   # par(mfrow=c(1,1))
-  # plot(as.Date(names(C_sonar_bydate_a2a)), as.numeric(C_sonar_bydate_a2a), 
-  #      ylim=c(0,as.numeric(max(C_sonar_bydate_a2a, C_vis_bydate_a2a))),
-  #      type='l',col=2,lwd=2,main=paste("Chena -",truncs[i]))
-  # lines(as.Date(names(C_vis_bydate_a2a)), C_vis_bydate_a2a, col=4,lwd=2)
+  plot(as.Date(names(C_sonar_bydate_a2a)), as.numeric(C_sonar_bydate_a2a),
+       ylim=c(0,as.numeric(max(C_sonar_bydate_a2a, C_vis_bydate_a2a))),
+       type='l',col=2,lwd=2,main=paste("Chena -",truncs[i]))
+  lines(as.Date(names(C_vis_bydate_a2a)), C_vis_bydate_a2a, col=4,lwd=2)
+  legend("topright",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
+  # plot(as.Date(names(S_sonar_bydate_a2a)), as.numeric(S_sonar_bydate_a2a), 
+  #      ylim=c(0,as.numeric(max(S_sonar_bydate_a2a, S_vis_bydate_a2a))),
+  #      type='l',col=2,lwd=2,main=paste("Salcha -",truncs[i]))
+  # points(as.Date(names(S_sonar_bydate_a2a)), as.numeric(S_sonar_bydate_a2a), 
+  #        ylim=c(0,as.numeric(max(S_sonar_bydate_a2a, S_vis_bydate_a2a))),
+  #        col=2,lwd=2,main=paste("Salcha -",truncs[i]))
+  # lines(as.Date(names(S_vis_bydate_a2a)), S_vis_bydate_a2a, col=4,lwd=2)
+  # points(as.Date(names(S_vis_bydate_a2a)), S_vis_bydate_a2a, col=4,lwd=2)
   # legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
-  plot(as.Date(names(S_sonar_bydate_a2a)), as.numeric(S_sonar_bydate_a2a), 
-       ylim=c(0,as.numeric(max(S_sonar_bydate_a2a, S_vis_bydate_a2a))),
-       type='l',col=2,lwd=2,main=paste("Salcha -",truncs[i]))
-  points(as.Date(names(S_sonar_bydate_a2a)), as.numeric(S_sonar_bydate_a2a), 
-         ylim=c(0,as.numeric(max(S_sonar_bydate_a2a, S_vis_bydate_a2a))),
-         col=2,lwd=2,main=paste("Salcha -",truncs[i]))
-  lines(as.Date(names(S_vis_bydate_a2a)), S_vis_bydate_a2a, col=4,lwd=2)
-  points(as.Date(names(S_vis_bydate_a2a)), S_vis_bydate_a2a, col=4,lwd=2)
-  legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
-  abline(h=0, lty=3)
+  # abline(h=0, lty=3)
 }
 
 
