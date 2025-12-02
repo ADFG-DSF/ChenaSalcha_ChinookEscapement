@@ -131,6 +131,10 @@ for final estimates.
 
 ### output
 
+* **ChenaSalcha_SummaryTotals_YEAR.csv**: A summary table of all daily estimates & SE's,
+as well as what percentage of the total run (in terms of numbers of fish, not days) 
+estimated to have been enumerated by each method.
+
 * **ChenaSalcha_RIVERSPECIES_YEAR.csv**: A summary table of daily estimates & SE's
 and enumeration method used, as well as estimates from all methods.
 

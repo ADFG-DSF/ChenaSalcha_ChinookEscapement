@@ -17,11 +17,11 @@ load(file="2025/Rdata/sonardata2025.Rdata")
 load(file="2025/Rdata/vis_2025.Rdata")
 load(file="2025/Rdata/mixmodel2025.Rdata")
 
-save_output <- TRUE  # FALSE  # whether to write output to external files
-# save_output <- FALSE
+# save_output <- TRUE  # FALSE  # whether to write output to external files
+save_output <- FALSE
 
-run_model <- TRUE  # whether to (re)run the interpolation model
-# run_model <- FALSE
+# run_model <- TRUE  # whether to (re)run the interpolation model
+run_model <- FALSE
 
 
 
@@ -955,12 +955,13 @@ if(test_model) {
   Schum_hieroutTEST <- runHamachan(y1=Schum_histo_counts, n.iter=1000, tryitonce=T) # , inits=haminits1
 }
 
-## Doing it for real - 50k takes 15 minutes if it succeeds, 100k in 30
 
-# 100k in about 25 min if it succeeds - 2000k in 8 hrs
-# niter <- 2000*1000   # 100k still doesn't impressively converge
+
+## Doing it for real 
+
+# niter <- 2000*1000   
 # niter <- 1000*1000   
-niter <- 500*1000   
+niter <- 500*1000   # 3 hours on laptop (6 cores)
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
@@ -1192,6 +1193,7 @@ plotlines <- function(x, xlab="", ylab="", main="", ...) {  # x is a matrix
 
 lastday <- 54
 rownames(Cchin_ests)[lastday]
+nyr <- ncol(Cchin_allests)
 
 par(mfrow=c(2,2))
 
