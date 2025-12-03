@@ -959,9 +959,9 @@ if(test_model) {
 
 ## Doing it for real 
 
-# niter <- 2000*1000   
+niter <- 2000*1000   # 12 hours on laptop (6 cores)
 # niter <- 1000*1000   
-niter <- 500*1000   # 3 hours on laptop (6 cores)
+# niter <- 500*1000   # 3 hours on laptop (6 cores)
 
 # chin_hierout <- runHamachan(y1=Cchin_histo_counts, y2=Schin_histo_counts, n.iter=niter, msg="firstmod -", inits=haminits1) #
 # chum_hierout <- runHamachan(y1=Cchum_histo_counts, y2=Schum_histo_counts, n.iter=niter, msg="secondmod -", inits=haminits1) #
