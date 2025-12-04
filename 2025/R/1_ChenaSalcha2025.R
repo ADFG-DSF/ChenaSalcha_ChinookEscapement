@@ -186,7 +186,7 @@ dim(all_sonar)
 all_sonar_numeric <- all_sonar[,-ncol(all_sonar)]
 for(j in 1:3) all_sonar_numeric[,j] <- as.numeric(as.factor(all_sonar_numeric[,j]))
 # plot(all_sonar_numeric)   # time consuming
-plot(all_sonar_numeric$length, col=all_sonar_numeric$station)
+# plot(all_sonar_numeric$length, col=all_sonar_numeric$station)   # not interesting in 2025
 
 all_sonar_isNA <- all_sonar
 for(j in 1:ncol(all_sonar_isNA)) all_sonar_isNA[,j] <- is.na(all_sonar[,j])
@@ -653,6 +653,8 @@ b0_prec_alt <- CS_jags_out_alt$sd$b0^(-2)
 b1_prec_alt <- CS_jags_out_alt$sd$b1^(-2)
 
 # save(CS_jags_out, length.jags.out, lengthdata, file="priorouts.Rdata")
+} else {
+  load(file="2025/Rdata/CSpriors2025.Rdata")
 }
 
 
@@ -663,6 +665,24 @@ b1_prec_alt <- CS_jags_out_alt$sd$b1^(-2)
 
 # library(MTfuncs)
 # expit <- function(x)  exp(x)/(1+exp(x))
+
+
+
+## Much of the plotting below was motivated by a data issue that arose in 2019
+## and 2024: because the visual counts were so data-limited for the Salcha, the 
+## logistic curve estimated for the daily Chinook proportion did not make sense
+## (it was not really estimable from the data we had).
+##
+## The "all data" version used all data, whereas the "alt" version took out the
+## 2019 and 2024 Salcha data and fit these curves hierarchically - the alt version
+## was ultimately used in both years.
+##
+## *** In 2025, it really doesn't matter. ***
+##
+##
+## Note: some of the plots will appear a bit richer if the model has been run,
+## but will still display if it has not.
+
 
 # all data version - Chena
 par(mfrow=c(3,4))
@@ -706,6 +726,7 @@ for(i in 1:length(yearsboth)) {
   curve(expit(a0[i,2]+a1[i,2]*x),add=T,col=4,lty=2,lwd=2)
   if(run_models) curve(expit(b0[2]+b1[2]*x),add=T,lty=3,col=2)
 }
+
 plot(NA,main="",xlab="",ylab="",xlim=0:1,ylim=0:1,yaxt="n",xaxt="n")
 legend("topleft",legend=c("year alone","all years","hierarchical"),lwd=c(1,1,2),col=c(1,2,4),lty=c(1,3,2),bty="n")
 
@@ -786,6 +807,7 @@ asdf <- subset(Chena_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
 text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
      labels=(asdf$chinook+asdf$chum), pos=4)
+## text is the number of fish (denominator of proportion)
 
 if(run_models) {
 predp <- expit(a0p[,2] + outer(a1p[,2], xx))
@@ -794,10 +816,13 @@ envelope(predp, x=xx, ylab="proportion Chinook",xlab="day",main="Salcha", ylim=0
   plot(NA,ylim=0:1,xlim=c(-30,20),ylab="proportion Chinook",xlab="day",main="Salcha")
   curve(expit(a0[length(yearsboth),2]+a1[length(yearsboth),2]*x),add=T,lty=2, col=4)
 }
+
 asdf <- subset(Salcha_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
 text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
      labels=(asdf$chinook+asdf$chum), pos=4)
+
+
 
 
 # alt data version - BOTH 
@@ -860,6 +885,7 @@ asdf <- subset(Chena_sub, year==yearsboth[length(yearsboth)])
 points(asdf$date205,asdf$chinook/(asdf$chinook+asdf$chum))
 text(x=asdf$date205, y=asdf$chinook/(asdf$chinook+asdf$chum),
      labels=(asdf$chinook+asdf$chum), pos=4)
+## text is the number of fish (denominator of proportion)
 
 if(run_models) {
 predp <- expit(a0p[,2] + outer(a1p[,2], xx))

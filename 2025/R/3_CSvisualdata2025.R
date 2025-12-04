@@ -117,7 +117,7 @@ cbind(Schin_check, Salcha_2025_Chin_vis,
       Salcha_2025_Chin_vis[, 3:10] == Salcha_2025_Clarity_vis[,3:10])[Schin_check>0,]
 cbind(Schum_check, Salcha_2025_Chum_vis, 
       Salcha_2025_Chum_vis[, 3:10] == Salcha_2025_Clarity_vis[,3:10])[Schum_check>0,]
-# looks like Chena King has one date (7/16) with 4 sequential blocks with the same count
+# looks like Chena King has one date (7/17) with 4 sequential blocks with the same count
 # as the clarity values - investigate??
 
 
@@ -340,56 +340,60 @@ sum(C_all_vis_long_a2a$count)
 sum(C_sonar_byblock_a2a)
 # sum(S_sonar_byblock_a2a)
 
+#################
+##
+## Repeating most everything for the non-reviewed data!
+##
+############
+
+load(file="2025/Rdata/sonardata2025_nonreviewed.Rdata")
+
+CSouth_all_sonar_non <- subset(all_sonar_nonreviewed, station=="South")
+CNorth_all_sonar_non <- subset(all_sonar_nonreviewed, station=="North")
+C_all_sonar_non <- subset(all_sonar_nonreviewed, river=="Chena")
+C_blocks_both_non <- intersect(C_all_vis_long$block[!is.na(C_all_vis_long$count)],
+                           intersect(CSouth_all_sonar_non$block, CNorth_all_sonar_non$block))
+
+C_all_sonar_a2a_non <- subset(C_all_sonar_non, block %in% C_blocks_both_non)
+
+C_all_vis_long_a2a_non <- subset(C_all_vis_long, block %in% C_blocks_both_non)
+
+C_sonar_bydate_a2a_non <- table(C_all_sonar_a2a_non$date[C_all_sonar_a2a_non$length >= 400])
+C_sonar_byblock_a2a_non <- table(as.factor(C_all_sonar_a2a_non$block)[C_all_sonar_a2a_non$length >= 400])
+C_vis_bydate_a2a_non <- with(C_all_vis_long_a2a_non, tapply(count, as.character(date), sum))
 
 
-# load(file="2025/Rdata/sonardata2025_nonreviewed.Rdata")
-# 
-# CSouth_all_sonar <- subset(all_sonar_nonreviewed, station=="South")
-# CNorth_all_sonar <- subset(all_sonar_nonreviewed, station=="North")
-# C_all_sonar <- subset(all_sonar, river=="Chena")
-# C_blocks_both <- intersect(C_all_vis_long$block[!is.na(C_all_vis_long$count)],
-#                            intersect(CSouth_all_sonar$block, CNorth_all_sonar$block))
-# 
-# C_all_sonar_a2a <- subset(C_all_sonar, block %in% C_blocks_both)
-# 
-# C_all_vis_long_a2a <- subset(C_all_vis_long, block %in% C_blocks_both)
-# 
-# C_sonar_bydate_a2a <- table(C_all_sonar_a2a$date[C_all_sonar_a2a$length >= 400])
-# C_sonar_byblock_a2a <- table(as.factor(C_all_sonar_a2a$block)[C_all_sonar_a2a$length >= 400])
-# C_vis_bydate_a2a <- with(C_all_vis_long_a2a, tapply(count, as.character(date), sum))
-# 
-# 
-# 
-# ## Plotting:  First DAILY TOTALS summing only apples:apples counting blocks
-# 
-# par(mfrow=c(1,1))
-# plot(as.Date(names(C_sonar_bydate_a2a)), as.numeric(C_sonar_bydate_a2a),
-#      ylim=c(0,as.numeric(max(C_sonar_bydate_a2a, C_vis_bydate_a2a))),
-#      type='l',col=2,lwd=2,main="Chena")
-# lines(as.Date(names(C_vis_bydate_a2a)), C_vis_bydate_a2a, col=4,lwd=2)
-# legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
-# abline(h=0, lty=3)
-# 
-# 
-# 
-# ## Plotting:  just corresponding apples:apples counting blocks.  Plot should probably be zoomed bigly.
-# 
-# par(mfrow=c(1,1))
-# plot(as.numeric(C_sonar_byblock_a2a),
-#      ylim=c(0,as.numeric(max(C_sonar_byblock_a2a, C_all_vis_long_a2a$count))),
-#      type='l',col=2,lwd=2,main="Chena")
-# lines(C_all_vis_long_a2a$count, col=4,lwd=2)
-# legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
-# 
-# 
-# # checking overall totals
-# 
-# sum(C_all_sonar_a2a$length >= 400, na.rm=T)
-# sum(C_all_vis_long_a2a$count)
-# # sum(S_all_sonar_a2a$length >= 400, na.rm=T)
-# # sum(S_all_vis_long_a2a$count)
-# sum(C_sonar_byblock_a2a)
-# # sum(S_sonar_byblock_a2a)
+
+## Plotting:  First DAILY TOTALS summing only apples:apples counting blocks
+
+par(mfrow=c(1,1))
+plot(as.Date(names(C_sonar_bydate_a2a_non)), as.numeric(C_sonar_bydate_a2a_non),
+     ylim=c(0,as.numeric(max(C_sonar_bydate_a2a_non, C_vis_bydate_a2a_non))),
+     type='l',col=2,lwd=2,main="Chena")
+lines(as.Date(names(C_vis_bydate_a2a_non)), C_vis_bydate_a2a_non, col=4,lwd=2)
+legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
+abline(h=0, lty=3)
+
+
+
+## Plotting:  just corresponding apples:apples counting blocks.  Plot should probably be zoomed bigly.
+
+par(mfrow=c(1,1))
+plot(as.numeric(C_sonar_byblock_a2a_non),
+     ylim=c(0,as.numeric(max(C_sonar_byblock_a2a_non, C_all_vis_long_a2a_non$count))),
+     type='l',col=2,lwd=2,main="Chena")
+lines(C_all_vis_long_a2a_non$count, col=4,lwd=2)
+legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
+
+
+# checking overall totals
+
+sum(C_all_sonar_a2a_non$length >= 400, na.rm=T)
+sum(C_all_vis_long_a2a_non$count)
+# sum(S_all_sonar_a2a$length >= 400, na.rm=T)
+# sum(S_all_vis_long_a2a$count)
+sum(C_sonar_byblock_a2a_non)
+# sum(S_sonar_byblock_a2a)
 
 
 
@@ -398,11 +402,13 @@ sum(C_sonar_byblock_a2a)
 
 # adding sonar counts to the visual dataframe (long) for easier comparison
 
-############################### this is where i stopped
-
 all(names(C_sonar_byblock_a2a) == C_all_vis_long_a2a$block)
 C_all_vis_long_a2a$sonarcount <- C_sonar_byblock_a2a
 C_all_vis_long_a2a$time <- (C_all_vis_long_a2a$shift-1)*8 + (C_all_vis_long_a2a$hour-1)
+
+all(names(C_sonar_byblock_a2a_non) == C_all_vis_long_a2a_non$block)
+C_all_vis_long_a2a_non$sonarcount <- C_sonar_byblock_a2a_non
+C_all_vis_long_a2a_non$time <- (C_all_vis_long_a2a_non$shift-1)*8 + (C_all_vis_long_a2a_non$hour-1)
 
 # trying a discrepancy score, kinda works
 C_all_vis_long_a2a$dscore1 <- ((C_all_vis_long_a2a$count + 1) / 
@@ -431,6 +437,7 @@ abline(h=0:1, lty=3)
 
 # trying a binomial logistic regression, under the assumption that sonar detects
 # all fish, and some proportion are detected visually (shaky, i know)
+## IN 2025 THIS NO LONGER WORKS
 
 # yglm <- cbind(as.numeric(a2a$count),
 #               ifelse(as.numeric(a2a$count)>as.numeric(a2a$sonarcount),
@@ -467,7 +474,10 @@ abline(h=0:1, lty=3)
 
 
 
-# a whooooooooole bunch of visualizations!
+## a whooooooooole bunch of visualizations!
+##
+## for the most part, these have sonar count on the x-axis and visual count on the y-axis.
+## If a count is near the diagonal, that means they match.
 
 C_all_vis_long_a2a %>%
   ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
@@ -480,11 +490,23 @@ C_all_vis_long_a2a %>%
   geom_point() +
   geom_abline(slope=1, intercept=0, lty=3)
 
+## ------------
+
 C_all_vis_long_a2a %>%
   ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
   facet_wrap(~factor(tech)) +
   geom_point() +
   geom_abline(slope=1, intercept=0, lty=3)
+
+## ok, this ^^ was the only really interesting one, so it's repeated for the 
+## non-reviewed sonar data VV
+C_all_vis_long_a2a_non %>%
+  ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
+  facet_wrap(~factor(tech)) +
+  geom_point() +
+  geom_abline(slope=1, intercept=0, lty=3)
+
+## ------------
 
 C_all_vis_long_a2a %>%
   ggplot(aes(x=jitter(sonarcount), y=jitter(count), colour=factor(clarity))) +
@@ -553,7 +575,7 @@ C_all_vis_long_a2a %>%
 # geom_abline(slope=1, intercept=0, lty=3)
 
 
-
+# are there any stories in the time sequence??
 C_all_vis_long_a2a %>%
   group_by(date, clarity) %>%
   summarise(sonarsum=sum(sonarcount), visualsum=sum(count)) -> aa #%>%
@@ -562,6 +584,8 @@ C_all_vis_long_a2a %>%
 # facet_wrap(~clarity)+
 # geom_line() 
 
+## separating the apples:apples comparison by clarity score to see if there is
+## more discrepancy when clarity is worse.  It didn't really matter in 2025.
 par(mfrow=c(3,1))
 for(i in 1:3) {
   plot(sonarsum ~ as.Date(date), data=subset(aa, clarity==i), type="l",
@@ -576,7 +600,62 @@ for(i in 1:3) {
 
 
 
+## A few comparisons between the reviewed and non-reviewed sonar data!
 
+# how many rows?  Each row is either a fish or a block with no fish
+nrow(all_sonar)               # 1661
+nrow(all_sonar_nonreviewed)   # 1800
+
+# how many fish >= 400mm?  This is the pre-truncation we generally use.
+sum(all_sonar$length >= 400, na.rm=TRUE)              # 1033
+sum(all_sonar_nonreviewed$length >= 400, na.rm=TRUE)  # 1099
+
+all_sonar %>%
+  ggplot(aes(x=date+timefrac, y=length)) +
+  geom_point()
+all_sonar_nonreviewed %>%
+  ggplot(aes(x=date+timefrac, y=length)) +
+  geom_point()
+
+par(mfrow=c(1,1))
+with(all_sonar, plot(date+timefrac, length))
+abline(h=400)
+with(all_sonar_nonreviewed, plot(date+timefrac, length))
+abline(h=400)
+
+
+pre <- all_sonar_nonreviewed %>%
+  mutate(datetime = date+timefrac) %>%
+  mutate(datenum = as.numeric(datetime)) %>%
+  select(length, datetime, datenum)
+post <- all_sonar %>%
+  mutate(datetime = date+timefrac) %>%
+  mutate(datenum = as.numeric(datetime)) %>%
+  select(length, datetime, datenum)
+
+pre$match <- NA
+for(i in 1:nrow(pre)) {
+  if(is.na(pre$length[i])) {
+    pre$match[i] <- pre$datenum[i] %in% post$datenum
+  } else {
+    pre$match[i] <- any((pre$length[i]==post$length) & (pre$datenum[i]==post$datenum), na.rm=TRUE)
+  }
+}
+table(pre$match, useNA = 'ifany')
+
+post$match <- NA
+for(i in 1:nrow(post)) {
+  if(is.na(post$length[i])) {
+    post$match[i] <- post$datenum[i] %in% pre$datenum
+  } else {
+    post$match[i] <- any((post$length[i]==pre$length) & (post$datenum[i]==pre$datenum), na.rm=TRUE)
+  }
+}
+table(post$match, useNA = 'ifany')
+
+with(pre, plot(datetime, length, pch=ifelse(match, 1, 16)))
+with(post, plot(datetime, length, pch=ifelse(match, 1, 16), 
+     xlim=range(pre$datetime, na.rm=TRUE), ylim=range(pre$length, na.rm=TRUE)))
 
 
 
