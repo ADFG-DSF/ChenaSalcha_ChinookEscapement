@@ -217,7 +217,7 @@ S_all_vis_long$clarity <- Salcha_2025_Clarity_vis_long$count
 
 
 # investigating a possible tech effect for visual quality
-# - note: this dataset is not publicly available
+# - note: techs are only identifiable by letter A-E
 tech25 <- read.csv("2025/flat_data/tech25.csv") %>%
   mutate(date=datesmasher(Date)) %>%
   select(-Date) %>%
@@ -598,9 +598,12 @@ for(i in 1:3) {
          col=4)
 }
 
-
-
+##############
+#
 ## A few comparisons between the reviewed and non-reviewed sonar data!
+#
+##############
+
 
 # how many rows?  Each row is either a fish or a block with no fish
 nrow(all_sonar)               # 1661
@@ -610,52 +613,101 @@ nrow(all_sonar_nonreviewed)   # 1800
 sum(all_sonar$length >= 400, na.rm=TRUE)              # 1033
 sum(all_sonar_nonreviewed$length >= 400, na.rm=TRUE)  # 1099
 
-all_sonar %>%
-  ggplot(aes(x=date+timefrac, y=length)) +
-  geom_point()
-all_sonar_nonreviewed %>%
-  ggplot(aes(x=date+timefrac, y=length)) +
-  geom_point()
-
-par(mfrow=c(1,1))
-with(all_sonar, plot(date+timefrac, length))
-abline(h=400)
-with(all_sonar_nonreviewed, plot(date+timefrac, length))
-abline(h=400)
 
 
+## Trying to match the pre (nonreviewed) to post (reviewed) sonar targets.
+## - Which are the same in both records in terms of length AND datetime?
+## - Which are present (in terms of datetime) but changed in length? 
 pre <- all_sonar_nonreviewed %>%
   mutate(datetime = date+timefrac) %>%
   mutate(datenum = as.numeric(datetime)) %>%
-  select(length, datetime, datenum)
+  select(length, datetime, datenum, date, shift)
 post <- all_sonar %>%
   mutate(datetime = date+timefrac) %>%
   mutate(datenum = as.numeric(datetime)) %>%
-  select(length, datetime, datenum)
+  select(length, datetime, datenum, shift, date, shift)
+
+# adding tech
+pre$tech <- NA
+post$tech <- NA
+for(i in 1:nrow(tech25)) {
+  pre$tech[pre$date==tech25$date[i] & pre$shift==tech25$shift[i]] <- tech25$tech[i]
+  post$tech[post$date==tech25$date[i] & post$shift==tech25$shift[i]] <- tech25$tech[i]
+}
+
+# "close enough" with a threshold of xx minutes
+ce <- function(x1, x2, threshold=0/(24*60)) {  # default to 0
+  abs(x1 - x2) <= threshold
+}
 
 pre$match <- NA
+pre$change <- NA
 for(i in 1:nrow(pre)) {
   if(is.na(pre$length[i])) {
-    pre$match[i] <- pre$datenum[i] %in% post$datenum
+    # pre$match[i] <- pre$datenum[i] %in% post$datenum
+    # pre$change[i] <- !(pre$datenum[i] %in% post$datenum)
+    pre$match[i] <- any(ce(pre$datenum[i], post$datenum), na.rm=TRUE)
+    pre$change[i] <- !(any(ce(pre$datenum[i], post$datenum), na.rm=TRUE))
   } else {
-    pre$match[i] <- any((pre$length[i]==post$length) & (pre$datenum[i]==post$datenum), na.rm=TRUE)
+    pre$match[i] <- any((pre$length[i]==post$length) & ce(pre$datenum[i],post$datenum), na.rm=TRUE) 
+    pre$change[i] <- !any((pre$length[i]==post$length) & ce(pre$datenum[i],post$datenum), na.rm=TRUE) &
+      any(ce(pre$datenum[i],post$datenum), na.rm=TRUE)
   }
 }
-table(pre$match, useNA = 'ifany')
+with(pre, table(match, useNA = 'ifany'))
+with(pre, table(change, useNA = 'ifany'))
+with(pre, table(change, match, useNA = 'ifany'))
+with(subset(pre, length>=400), table(match, useNA = 'ifany'))
+with(subset(pre, length>=400), table(change, useNA = 'ifany'))
+with(subset(pre, length>=400), table(change, match, useNA = 'ifany'))
 
 post$match <- NA
+post$change <- NA
 for(i in 1:nrow(post)) {
   if(is.na(post$length[i])) {
-    post$match[i] <- post$datenum[i] %in% pre$datenum
+    # post$match[i] <- post$datenum[i] %in% pre$datenum
+    # post$change[i] <- !(post$datenum[i] %in% pre$datenum)
+    post$match[i] <- any(ce(post$datenum[i], pre$datenum), na.rm=TRUE)
+    post$change[i] <- !(any(ce(post$datenum[i], pre$datenum), na.rm=TRUE))
   } else {
-    post$match[i] <- any((post$length[i]==pre$length) & (post$datenum[i]==pre$datenum), na.rm=TRUE)
+    post$match[i] <- any((post$length[i]==pre$length) & ce(post$datenum[i],pre$datenum), na.rm=TRUE)
+    post$change[i] <- !any((post$length[i]==pre$length) & ce(post$datenum[i],pre$datenum), na.rm=TRUE) &
+      any(ce(post$datenum[i],pre$datenum), na.rm=TRUE)
   }
 }
-table(post$match, useNA = 'ifany')
+with(post, table(match, useNA = 'ifany'))
+with(post, table(change, useNA = 'ifany'))
+with(post, table(change, match, useNA = 'ifany'))
+with(subset(post, length>=400), table(match, useNA = 'ifany'))
+with(subset(post, length>=400), table(change, useNA = 'ifany'))
+with(subset(post, length>=400), table(change, match, useNA = 'ifany'))
 
-with(pre, plot(datetime, length, pch=ifelse(match, 1, 16)))
-with(post, plot(datetime, length, pch=ifelse(match, 1, 16), 
-     xlim=range(pre$datetime, na.rm=TRUE), ylim=range(pre$length, na.rm=TRUE)))
+par(mfrow=c(1,1))
+with(pre, plot(datetime, length, col=adjustcolor(ifelse(match, 1,"white"), alpha.f=.1)))
+with(subset(pre, change), points(datetime, length, pch="x", col=4))
+with(subset(post, change), points(datetime, length, pch="+", col=3))
+legend("topright", legend=c("changed FROM", "changed TO"), pch=c("x","+"), col=4:3)
+
+with(pre, plot(datetime, length, col=adjustcolor(ifelse(match, 1,"white"), alpha.f=.1)))
+with(subset(pre, !change & !match), points(datetime, length, col=2, pch="*"))
+legend("topright", legend=c("Deleted"), pch=c("*"), col=2)
+
+techs <- sort(unique(pre$tech[pre$tech %in% LETTERS]))
+# par(mfrow=c(3,2))
+for(techi in techs) {
+  with(pre, plot(datetime, length, col=0, main=paste("tech",techi)))
+  with(subset(pre, tech==techi), points(datetime, length, col=adjustcolor(ifelse(match, 1,"white"), alpha.f=.1)))
+  with(subset(pre, change & tech==techi), points(datetime, length, pch="x", col=4))
+  with(subset(post, change & tech==techi), points(datetime, length, pch="+", col=3))
+  legend("topright", legend=c("changed FROM", "changed TO"), pch=c("x","+"), col=4:3)
+}
+for(techi in techs) {
+  with(pre, plot(datetime, length, col=0, main=paste("tech",techi)))
+  with(subset(pre, tech==techi), points(datetime, length, col=adjustcolor(ifelse(match, 1,"white"), alpha.f=.1)))
+  with(subset(pre, !change & !match & tech==techi), points(datetime, length, col=2, pch="*"))
+  legend("topright", legend=c("Deleted"), pch=c("*"), col=2)
+}
+
 
 
 
