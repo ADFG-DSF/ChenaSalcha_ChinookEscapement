@@ -1349,18 +1349,18 @@ Cchum_ham <- censorizor(Cchum_ham0, n=nn)
 Schin_ham <- censorizor(Schin_ham0, n=nn)
 Schum_ham <- censorizor(Schum_ham0, n=nn)
 
-par(mfrow=c(3,3))
-for(j in 1:ncol(Cchin_ham)) plot(Cchin_ham[,j])
-for(j in 1:ncol(Cchin_ham)) plot(Cchum_ham[,j])
-for(j in 1:ncol(Cchin_ham)) plot(Schin_ham[,j])
-for(j in 1:ncol(Cchin_ham)) plot(Schum_ham[,j])
 
-# Cchin_ests2 <- Cchin_ests1
-# Cchum_ests2 <- Cchum_ests1
-# Schin_ests2 <- Schin_ests1
-# Schum_ests2 <- Schum_ests1
+# ### this is a time-consuming graphical check that is only worth running
+# ### if you want to look at all individual years
+#
+# par(mfrow=c(3,3))
+# for(j in 1:ncol(Cchin_ham)) plot(Cchin_ham[,j])
+# for(j in 1:ncol(Cchin_ham)) plot(Cchum_ham[,j])
+# for(j in 1:ncol(Cchin_ham)) plot(Schin_ham[,j])
+# for(j in 1:ncol(Cchin_ham)) plot(Schum_ham[,j])
 
 
+# actual CI on the natural scale (none of that +/- 2*SE silliness)
 par(mfrow=c(2,2))
 caterpillar(Cchin_ham[,1:lastday])
 caterpillar(Cchum_ham[,1:lastday])
@@ -1694,8 +1694,6 @@ if(save_output) {
 }
 
 
-# plot cumulative SE wrt end date - starting at input date
-# plot cumulative CV wrt end date - starting at input date
 # plot cumulative SE wrt end date - starting at earliest date
 # plot cumulative CV wrt end date - starting at earliest date
 

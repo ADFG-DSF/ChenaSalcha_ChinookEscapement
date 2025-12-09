@@ -369,7 +369,7 @@ C_vis_bydate_a2a_non <- with(C_all_vis_long_a2a_non, tapply(count, as.character(
 par(mfrow=c(1,1))
 plot(as.Date(names(C_sonar_bydate_a2a_non)), as.numeric(C_sonar_bydate_a2a_non),
      ylim=c(0,as.numeric(max(C_sonar_bydate_a2a_non, C_vis_bydate_a2a_non))),
-     type='l',col=2,lwd=2,main="Chena")
+     type='l',col=2,lwd=2,main="Chena - nonreviewed")
 lines(as.Date(names(C_vis_bydate_a2a_non)), C_vis_bydate_a2a_non, col=4,lwd=2)
 legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
 abline(h=0, lty=3)
@@ -381,7 +381,7 @@ abline(h=0, lty=3)
 par(mfrow=c(1,1))
 plot(as.numeric(C_sonar_byblock_a2a_non),
      ylim=c(0,as.numeric(max(C_sonar_byblock_a2a_non, C_all_vis_long_a2a_non$count))),
-     type='l',col=2,lwd=2,main="Chena")
+     type='l',col=2,lwd=2,main="Chena - nonreviewed")
 lines(C_all_vis_long_a2a_non$count, col=4,lwd=2)
 legend("topleft",lwd=2,col=c(2,4),legend=c("sonar (total)","visual (total)"))
 
@@ -411,6 +411,8 @@ C_all_vis_long_a2a_non$sonarcount <- C_sonar_byblock_a2a_non
 C_all_vis_long_a2a_non$time <- (C_all_vis_long_a2a_non$shift-1)*8 + (C_all_vis_long_a2a_non$hour-1)
 
 # trying a discrepancy score, kinda works
+## close to 1 = good agreement between visual and sonar
+## further away = less agreement
 C_all_vis_long_a2a$dscore1 <- ((C_all_vis_long_a2a$count + 1) / 
                                  (C_all_vis_long_a2a$sonarcount + 1))
 

@@ -19,7 +19,9 @@
 # # Salcha_North <- ProcessFiles_ARIS("C:/Users/mbtyers/documents/2014/Analyses/Chena and Delta Clearwater/2018 analysis/2018 TOWERS/2018 SALCHA TEXT FILES/SALCHA NORTH")
 
 
-library(tidyverse)
+library(tidyverse)   # for data wrangling
+library(jagshelper)  # for helper functions related to JAGS stuff
+
 
 ## -- whether to save output to external files
 # save_output <- TRUE
