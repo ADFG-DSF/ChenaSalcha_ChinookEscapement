@@ -20,7 +20,7 @@
 #################################
 
 
-save_output <- FALSE   ## whether to write output to an external file
+save_output <- FALSE   ## whether to write output to external files
 # save_output <- TRUE
 
 
@@ -101,24 +101,24 @@ summary(Salcha_2026_Clarity_vis[,1:10])
 # checking to see if counts are present where the shouldn't be
 # - bad visibility or recorded no-count (clarity of -1, 4, or 5)
 table(as.matrix(is.na(Chena_2026_Chin_vis[,3:10])),
-      as.matrix(Chena_2026_Clarity_vis[,3:10]))
+      as.matrix(Chena_2026_Clarity_vis[,3:10]), useNA = "ifany")
 table(as.matrix(is.na(Chena_2026_Chum_vis[,3:10])),
-      as.matrix(Chena_2026_Clarity_vis[,3:10]))
+      as.matrix(Chena_2026_Clarity_vis[,3:10]), useNA = "ifany")
 table(as.matrix(is.na(Salcha_2026_Chin_vis[,3:10])),
-      as.matrix(Salcha_2026_Clarity_vis[,3:10]))
+      as.matrix(Salcha_2026_Clarity_vis[,3:10]), useNA = "ifany")
 table(as.matrix(is.na(Salcha_2026_Chum_vis[,3:10])),
-      as.matrix(Salcha_2026_Clarity_vis[,3:10]))
+      as.matrix(Salcha_2026_Clarity_vis[,3:10]), useNA = "ifany")
 
 # what ARE the counts we would be missing if we turn these into NA
-table(as.matrix(Chena_2026_Chin_vis[,3:10])[as.matrix(Chena_2026_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
-table(as.matrix(Chena_2026_Chum_vis[,3:10])[as.matrix(Chena_2026_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
-table(as.matrix(Salcha_2026_Chin_vis[,3:10])[as.matrix(Salcha_2026_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
-table(as.matrix(Salcha_2026_Chum_vis[,3:10])[as.matrix(Salcha_2026_Clarity_vis[,3:10]) %in% c(-1,4,5)], useNA = "ifany")
+table(as.matrix(Chena_2026_Chin_vis[,3:10])[as.matrix(Chena_2026_Clarity_vis[,3:10]) %in% c(-1,4,5,NA)], useNA = "ifany")
+table(as.matrix(Chena_2026_Chum_vis[,3:10])[as.matrix(Chena_2026_Clarity_vis[,3:10]) %in% c(-1,4,5,NA)], useNA = "ifany")
+table(as.matrix(Salcha_2026_Chin_vis[,3:10])[as.matrix(Salcha_2026_Clarity_vis[,3:10]) %in% c(-1,4,5,NA)], useNA = "ifany")
+table(as.matrix(Salcha_2026_Chum_vis[,3:10])[as.matrix(Salcha_2026_Clarity_vis[,3:10]) %in% c(-1,4,5,NA)], useNA = "ifany")
 
-# note: some no-counts for clarity values of 1, 2, or 3 (probably not a problem)
+# 2026 note: some no-counts for clarity values of 1, 2, or 3 (probably not a problem)
 
 
-# investigating another data problem I randomly found..
+# investigating another data problem I randomly found one year...
 # - clarity values entered as counts
 Cchin_check <- Cchum_check <- Schin_check <- Schum_check <- NA
 checker <- function(x1,x2) (!is.na(x1) & !is.na(x2)) & x1==x2
@@ -164,14 +164,36 @@ table(Schum_check)
 ## ------ DOES NOT SEEM TO BE A PROBLEM IN 2026
 
 
+## in 2026, it looks like no-counts were recorded as blanks in clarity.
+## do these correspond to blanks in counts?  -- YES
+table(is.na(Chena_2026_Chin_vis[,3:10]),
+      as.matrix(Chena_2026_Clarity_vis[,3:10]) %in% c(NA, -1, 4, 5))
+table(is.na(Chena_2026_Chum_vis[,3:10]),
+      as.matrix(Chena_2026_Clarity_vis[,3:10]) %in% c(NA, -1, 4, 5))
+table(is.na(Salcha_2026_Chin_vis[,3:10]),
+      as.matrix(Salcha_2026_Clarity_vis[,3:10]) %in% c(NA, -1, 4, 5))
+table(is.na(Salcha_2026_Chum_vis[,3:10]),
+      as.matrix(Salcha_2026_Clarity_vis[,3:10]) %in% c(NA, -1, 4, 5))
 
-# fixing basic imputation stuff
+
+table(is.na(Chena_2026_Chin_vis[,3:10]),
+      as.matrix(Chena_2026_Clarity_vis[,3:10]), useNA = 'ifany')
+table(is.na(Chena_2026_Chum_vis[,3:10]),
+      as.matrix(Chena_2026_Clarity_vis[,3:10]), useNA = 'ifany')
+table(is.na(Salcha_2026_Chin_vis[,3:10]),
+      as.matrix(Salcha_2026_Clarity_vis[,3:10]), useNA = 'ifany')
+table(is.na(Salcha_2026_Chum_vis[,3:10]),
+      as.matrix(Salcha_2026_Clarity_vis[,3:10]), useNA = 'ifany')
+
+
+
+# fixing basic imputation stuff  ----- need to confirm if NA should be %in% below
 for(j in 3:10) {
   ## data fix: counts when clarity is 4, 5 or -1 should be NA
-  Chena_2026_Chin_vis[,j][Chena_2026_Clarity_vis[,j] %in% c(-1,4,5)] <- NA
-  Chena_2026_Chum_vis[,j][Chena_2026_Clarity_vis[,j] %in% c(-1,4,5)] <- NA
-  Salcha_2026_Chin_vis[,j][Salcha_2026_Clarity_vis[,j] %in% c(-1,4,5)] <- NA
-  Salcha_2026_Chum_vis[,j][Salcha_2026_Clarity_vis[,j] %in% c(-1,4,5)] <- NA
+  Chena_2026_Chin_vis[,j][Chena_2026_Clarity_vis[,j] %in% c(-1,4,5,NA)] <- NA
+  Chena_2026_Chum_vis[,j][Chena_2026_Clarity_vis[,j] %in% c(-1,4,5,NA)] <- NA
+  Salcha_2026_Chin_vis[,j][Salcha_2026_Clarity_vis[,j] %in% c(-1,4,5,NA)] <- NA
+  Salcha_2026_Chum_vis[,j][Salcha_2026_Clarity_vis[,j] %in% c(-1,4,5,NA)] <- NA
   
   ## data fix: counts when clarity is 1-3 should be zero, not NA
   #### maybe safer to impute from other species??
@@ -208,11 +230,6 @@ table(as.matrix(is.na(Salcha_2026_Chum_vis[,3:10])),
 # }
 
 
-# save_output <- TRUE  # FALSE  # whether to write output to external files
-save_output <- FALSE
-
-# run_model <- TRUE  # whether to (re)run the interpolation model
-run_model <- FALSE
 
 
 
@@ -299,21 +316,15 @@ expansion_sheet <- function(x, vx=NULL, worstcase=T) {
 ######################################################
 
 
-
-
 ## Re-expressing the visual counts in the same array format as the sonar totals.
 ## Note: visual counts were only conducted for the top (first 20-min) block of 
 ## each hour, so visual data is only filled in for [,,,1]
 
 dates <- sort(unique(paste(2026, substr(as.character(Salcha_2026_Chin_vis$Day),6,10),sep="-")))
-# # stations <- sort(unique(all_sonar$station))
-# CN_650down <- CS_650down <- SN_650down <- SS_650down <- CN_650up <- CS_650up <- SN_650up <- SS_650up <- 
-#   CN_650down <- CS_650down <- SN_650down <- SS_650down <- CN_650up <- CS_650up <- SN_650up <- SS_650up <- 
-#   CN_chum <- CS_chum <- SN_chum <- SS_chum <- CN_chin <- CS_chin <- SN_chin <- SS_chin <- 
-#   vCN_chum <- vCS_chum <- vSN_chum <- vSS_chum <- vCN_chin <- vCS_chin <- vSN_chin <- vSS_chin <- array(0, dim=c(length(dates),3,8,3))
 
+Schin_vis <- Schum_vis <- Cchin_vis <- Cchum_vis <- 
+  array(NA, dim=c(length(dates),3,8,3))
 
-Schin_vis <- Schum_vis <- Cchin_vis <- Cchum_vis <- array(NA, dim=c(length(dates),3,8,3))
 for(i in 1:3) {
   Cnr <- nrow(Chena_2026_Chin_vis)
   Snr <- nrow(Salcha_2026_Chin_vis)
@@ -330,6 +341,7 @@ Schin_vis_expanded <- expansion_sheet(x=Schin_vis)
 Schum_vis_expanded <- expansion_sheet(x=Schum_vis)
 
 ## compiling all sources of estimates into one data.frame for each species/river
+## - not needed in 2026, but retained for consistency
 Cchin_ests <- cbind(Cchin_vis_expanded)#, Cchin_expanded, C650up_expanded[,1:3])
 Cchum_ests <- cbind(Cchum_vis_expanded)#, Cchum_expanded, C650down_expanded[,1:3])
 Schin_ests <- cbind(Schin_vis_expanded)#, Schin_expanded, S650up_expanded[,1:3])
@@ -390,7 +402,6 @@ range(row.names(Schin_ests))
 range(Schum_sheet$date)
 range(row.names(Schum_ests))
 
-
 # A quick funtion to check and summarize any discrepancies
 
 checkthem <- function(ests, sheet) {
@@ -410,24 +421,22 @@ checkthem <- function(ests, sheet) {
 }
 checkthem(ests=Cchin_ests, sheet=Cchin_sheet)
 #          date n_ests n_sheet v_ests v_sheet
-# 10 2026-07-02     NA      12    NaN      NA   - hd==1, count removed
-# 35 2026-07-27     NA      51    NaN      NA   - hd==1, count removed
+# 10 2026-07-02     NA      12      NaN       NA   - hd==1, count removed
+# 35 2026-07-27     NA      51      NaN       NA   - hd==1, count removed
+# 42 2026-08-03      2      -1 28.11429 28.28571   - extra hour of no-count due to missing clarity, hour count removed
 
 checkthem(ests=Cchum_ests, sheet=Cchum_sheet)
 #          date n_ests n_sheet   v_ests v_sheet
-# 35 2026-07-27     NA      41      NaN      NA   - hd==1, count removed
-# 46 2026-08-07    465     465 6490.286    4392   - Bug in expansion sheet!! Cell AE139 is hard-coded "0"
+# 35 2026-07-27     NA      41      NaN       NA   - hd==1, count removed
+# 42 2026-08-03    198     198 1182.514 1017.714   - extra hour of no-count due to missing clarity, hour count removed
 
 checkthem(ests=Schin_ests, sheet=Schin_sheet)
 #          date   n_ests n_sheet   v_ests  v_sheet
 # 18 2026-07-10       NA      36      NaN       NA   - hd==1, count removed
-# 43 2026-08-04 24.42857      26 68.00000 58.57143   - no-count in sheet (Aug 4, shift 1, hour 5) imputed as zero - actual no-count?
-# 47 2026-08-08  7.00000       6 21.25714 13.71429   - 2 hours taken out for water clarity
 
 checkthem(ests=Schum_ests, sheet=Schum_sheet)
 #          date   n_ests n_sheet   v_ests  v_sheet
-# 43 2026-08-04 313.7143     336 2677.429 3185.429   - no-count in sheet (Aug 4, shift 1, hour 5) imputed as zero - actual no-count?
-
+# <0 rows> (or 0-length row.names)   - no discrepancies!
 
 
 
@@ -531,15 +540,13 @@ colnames(Cchin_histo_counts) <- paste0("count",1993:2025)
 colnames(Cchum_histo_counts) <- paste0("count",1993:2025)
 colnames(Schin_histo_counts) <- paste0("count",1993:2025)
 colnames(Schum_histo_counts) <- paste0("count",1993:2025)
-# colnames(Schin_histo_counts) <- paste0("count",(1993:2023)[!(1993:2023 %in% c(2018, 2020))])
-# colnames(Schum_histo_counts) <- paste0("count",(1993:2023)[!(1993:2023 %in% c(2018, 2020))])
 
 
 
 
 ## setting up to use current year's available daily estimates in the Hamachan model
 
-getests <- function(x) ifelse(!is.na(x$vis_count_expanded), x$vis_count_expanded, x$sonar_count_expanded)
+# getests <- function(x) ifelse(!is.na(x$vis_count_expanded), x$vis_count_expanded, x$sonar_count_expanded)
 
 # match these with dates
 Cchin_histo_counts$count2026 <- NA
@@ -557,6 +564,29 @@ Schum_histo_counts$count2026 <- NA
 
 ###  FOR 2026:
 ### Since there is no sonar in 2026, ONLY USE VISUAL FOR HAMACHAN INPUT
+
+# checking dimensions to make sure the kludgy code below is appropriate...
+firstlast <- function(x) c(x[1], x[length(x)])
+
+firstlast(rownames(Cchin_ests1))
+firstlast(Cchin_histo$Date)
+
+firstlast(rownames(Cchum_ests1))
+firstlast(Cchum_histo$Date)
+
+firstlast(rownames(Schin_ests1))
+firstlast(Schin_histo$Date)
+
+firstlast(rownames(Schum_ests1))
+firstlast(Schum_histo$Date)
+
+# 2026 take-home:
+# - all data frames have dates that start on June 23
+# - season estimates for Chena end on an EARLIER date than historical
+# - season estimates for Salcha end on a LATER date than historical
+## the code below vv will only work if all these things are true!!
+
+# filling in 2026 counts
 Cchin_histo_counts$count2026 <- Cchin_ests1$vis_count_expanded[1:nrow(Cchin_histo_counts)]
 Cchum_histo_counts$count2026 <- Cchum_ests1$vis_count_expanded[1:nrow(Cchum_histo_counts)]
 Schin_histo_counts$count2026[1:nrow(Schin_ests1)] <- Schin_ests1$vis_count_expanded
@@ -682,9 +712,11 @@ runHamachan <- function(y1,n.iter=5000,msg="",tryitonce=F,...) {
 run_model <- TRUE
 test_model <- FALSE
 
-ncores <- 10
-niter <- 10*1000  # < 1 min per model on desktop (10 cores)
-# niter <- 100*1000  # ~ 10 min per model on desktop (10 cores)
+# ncores <- 10  # desktop
+ncores <- 6  # laptop
+
+# niter <- 10*1000  # < 1 min per model on desktop (10 cores)
+niter <- 200*1000  # ~ 20 min per model on desktop (10 cores)
 
 
 ## had a bit of an issue getting the input data formatted correctly.  This is a way to do ONE test run
@@ -801,24 +833,24 @@ if(run_model) {
   # qq_postpred(Schum_hierout, p="y1pp", y=Schum_histo_counts)
   
   
-  ## posterior predictive plots for all years overlayed
-  par(mfrow=c(2,2))
-  qq_postpred(ypp=Cchin_hierout$sims.list$y1pp[,,1], y=log(Cchin_histo_counts[,1]))
-  for(j in 1:ncol(Cchin_histo_counts)) {
-    qq_postpred(ypp=Cchin_hierout$sims.list$y1pp[,,j], y=log(Cchin_histo_counts[,j]), add=T)
-  }
-  qq_postpred(ypp=Cchum_hierout$sims.list$y1pp[,,1], y=log(Cchum_histo_counts[,1]))
-  for(j in 1:ncol(Cchum_histo_counts)) {
-    qq_postpred(ypp=Cchum_hierout$sims.list$y1pp[,,j], y=log(Cchum_histo_counts[,j]), add=T)
-  }
-  qq_postpred(ypp=Schin_hierout$sims.list$y1pp[,,1], y=log(Schin_histo_counts[,1]))
-  for(j in 1:ncol(Schin_histo_counts)) {
-    qq_postpred(ypp=Schin_hierout$sims.list$y1pp[,,j], y=log(Schin_histo_counts[,j]), add=T)
-  }
-  qq_postpred(ypp=Schum_hierout$sims.list$y1pp[,,1], y=log(Schum_histo_counts[,1]))
-  for(j in 1:ncol(Schum_histo_counts)) {
-    qq_postpred(ypp=Schum_hierout$sims.list$y1pp[,,j], y=log(Schum_histo_counts[,j]), add=T)
-  }
+  # ## posterior predictive plots for all years overlayed
+  # par(mfrow=c(2,2))
+  # qq_postpred(ypp=Cchin_hierout$sims.list$y1pp[,,1], y=log(Cchin_histo_counts[,1]))
+  # for(j in 1:ncol(Cchin_histo_counts)) {
+  #   qq_postpred(ypp=Cchin_hierout$sims.list$y1pp[,,j], y=log(Cchin_histo_counts[,j]), add=T)
+  # }
+  # qq_postpred(ypp=Cchum_hierout$sims.list$y1pp[,,1], y=log(Cchum_histo_counts[,1]))
+  # for(j in 1:ncol(Cchum_histo_counts)) {
+  #   qq_postpred(ypp=Cchum_hierout$sims.list$y1pp[,,j], y=log(Cchum_histo_counts[,j]), add=T)
+  # }
+  # qq_postpred(ypp=Schin_hierout$sims.list$y1pp[,,1], y=log(Schin_histo_counts[,1]))
+  # for(j in 1:ncol(Schin_histo_counts)) {
+  #   qq_postpred(ypp=Schin_hierout$sims.list$y1pp[,,j], y=log(Schin_histo_counts[,j]), add=T)
+  # }
+  # qq_postpred(ypp=Schum_hierout$sims.list$y1pp[,,1], y=log(Schum_histo_counts[,1]))
+  # for(j in 1:ncol(Schum_histo_counts)) {
+  #   qq_postpred(ypp=Schum_hierout$sims.list$y1pp[,,j], y=log(Schum_histo_counts[,j]), add=T)
+  # }
   
   ## posterior predictive plots for 2026 
   par(mfrow=c(2,2))
@@ -933,7 +965,7 @@ plotlines <- function(x, xlab="", ylab="", main="", ...) {  # x is a matrix
   }
 }
 
-lastday <- 54
+lastday <- 55
 rownames(Cchin_ests)[lastday]
 nyr <- ncol(Cchin_allests)
 
@@ -1065,12 +1097,11 @@ abline(h=sqrt(sum(Schum_vtheo[1:lastday])), lty=3)
 
 head(Cchin_totsd)
 
-## in 2026: NO NEED TO CENSOR!
-# nn <- 1  # how many to actually censor!!!
-# Cchin_ham <- censorizor(x=Cchin_ham0, n=nn)
-# Cchum_ham <- censorizor(Cchum_ham0, n=nn)
-# Schin_ham <- censorizor(Schin_ham0, n=nn)
-# Schum_ham <- censorizor(Schum_ham0, n=nn)
+nn <- 1  # how many to actually censor!!!
+Cchin_ham <- censorizor(x=Cchin_ham0, n=nn)
+Cchum_ham <- censorizor(Cchum_ham0, n=nn)
+Schin_ham <- censorizor(Schin_ham0, n=nn)
+Schum_ham <- censorizor(Schum_ham0, n=nn)
 
 
 # ### this is a time-consuming graphical check that is only worth running
@@ -1148,7 +1179,7 @@ plotallthethings <- function(x, ...) {
   cols <- c(4,2,5,3)
   # plot(NA, xlim=range(dates), ylim=c(0,max(hi,na.rm=T)), ...=...)
   plot(dates, ests[,1], ylim=c(0,max(hi,na.rm=T)), col="white", ...=...)
-  for(i in 1:4) { #4
+  for(i in 1:3) { #4
     segments(x0=dates+.2*i, y0=lo[,i], y1=hi[,i], col=cols[i])
     points(x=dates+.2*i, y=ests[,i], col=cols[i], pch=16)
     lines(x=dates+.2*i, y=ests[,i], col=cols[i], pch=16)
@@ -1172,7 +1203,7 @@ plotalltheprops <- function(x1,x2, ...) {
   cols <- c(4,6,3)
   # plot(NA, xlim=range(dates), ylim=c(0,max(hi,na.rm=T)), ...=...)
   plot(dates, ests[,1], ylim=c(0,1), col="white", ...=...)
-  for(i in 1:4) {
+  for(i in 1:3) {
     # segments(x0=dates+.2*i, y0=lo[,i], y1=hi[,i], col=cols[i])
     points(x=dates+.2*i, y=ests[,i], col=cols[i], pch=16)
     lines(x=dates+.2*i, y=ests[,i], col=cols[i], pch=16)
@@ -1236,10 +1267,11 @@ maketot <- function(x, from, to) {
 }
 
 #### INPUTS FOR DATE RANGE
-Cfrom="2026-06-23"  ### note: these are defaulty and need to be added from Tracy
-Cto="2026-08-15"
-Sfrom="2026-06-23"
-Sto="2026-08-15"
+### per Teams conversation with Allison Matter
+Cfrom="2026-06-30"  
+Cto="2026-08-14"    # last day of visual counts on Chena
+Sfrom="2026-06-30"
+Sto="2026-08-16"    # last day of visual counts on Salcha
 
 
 tots <- rbind(maketot(x=Cchin_final, from=Cfrom, to=Cto),
@@ -1302,9 +1334,9 @@ tots3
 #### Defining global covariance matrix for daily counts
 #### This is the most correct way to handle total variance of summation!!
 
-dates <- as.Date(c(paste0("2025-06-",23:30),
-                   paste0("2025-07-",1:31),
-                   paste0("2025-08-",1:5)))  # I don't think this is used anymore
+# dates <- as.Date(c(paste0("2025-06-",23:30),
+#                    paste0("2025-07-",1:31),
+#                    paste0("2025-08-",1:5)))  # I don't think this is used anymore
 
 ## calculating covariance for hamachan
 ## NOTE: the seq_along in the indices only works because the start date is the same (06-23)
@@ -1412,15 +1444,15 @@ tots4
 
 save_output
 if(save_output) {
-  write.csv(tots4, file="2025/output/ChenaSalcha_SummaryTotals_2025.csv")
-  write.csv(Cchin_final, file="2025/output/ChenaSalcha_ChenaChinook_2025.csv")
-  write.csv(Cchum_final, file="2025/output/ChenaSalcha_ChenaChum_2025.csv")
-  write.csv(Schin_final, file="2025/output/ChenaSalcha_SalchaChinook_2025.csv")
-  write.csv(Schum_final, file="2025/output/ChenaSalcha_SalchaChum_2025.csv")
-  write.csv(Cchin_vcov, file="2025/output/ChenaSalcha_ChenaChinook_vcov_2025.csv")
-  write.csv(Cchum_vcov, file="2025/output/ChenaSalcha_ChenaChum_vcov_2025.csv")
-  write.csv(Schin_vcov, file="2025/output/ChenaSalcha_SalchaChinook_vcov_2025.csv")
-  write.csv(Schum_vcov, file="2025/output/ChenaSalcha_SalchaChum_vcov_2025.csv")
+  write.csv(tots4, file="2026/output/ChenaSalcha_SummaryTotals_2026.csv")
+  write.csv(Cchin_final, file="2026/output/ChenaSalcha_ChenaChinook_2026.csv")
+  write.csv(Cchum_final, file="2026/output/ChenaSalcha_ChenaChum_2026.csv")
+  write.csv(Schin_final, file="2026/output/ChenaSalcha_SalchaChinook_2026.csv")
+  write.csv(Schum_final, file="2026/output/ChenaSalcha_SalchaChum_2026.csv")
+  write.csv(Cchin_vcov, file="2026/output/ChenaSalcha_ChenaChinook_vcov_2026.csv")
+  write.csv(Cchum_vcov, file="2026/output/ChenaSalcha_ChenaChum_vcov_2026.csv")
+  write.csv(Schin_vcov, file="2026/output/ChenaSalcha_SalchaChinook_vcov_2026.csv")
+  write.csv(Schum_vcov, file="2026/output/ChenaSalcha_SalchaChum_vcov_2026.csv")
 }
 
 
